@@ -1,0 +1,17 @@
+dvc==3.58.0
+imbalanced-learn
+ipywidgets 
+matplotlib 
+matplotlib-inline 
+mlxtend==0.23.3
+numpy 
+pandas 
+PyYAML 
+scikit-learn
+scipy 
+seaborn 
+statsmodels 
+torch==2.4.0+cu118
+torchaudio==2.4.0+cu118
+torchvision==0.19.0+cu118
+tqdm 

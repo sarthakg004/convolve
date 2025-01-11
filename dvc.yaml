@@ -1,0 +1,44 @@
+stages:
+  data_cleaning:
+    cmd: python src/data_preprocessing.py
+    deps:
+      - src/data_cleaning.py
+      - data/raw/Dev_data_to_be_shared.csv
+      - data/raw/validation_data_to_be_shared.csv
+    params:
+      - data_cleaning.DEV_DATA_PATH
+      - data_cleaning.VAL_DATA_PATH
+      - data_cleaning.NULL_PERCENTAGE
+      - data_cleaning.VARIANCE_THRESHOLD
+      - data_cleaning.IMPUTATION_TECHNIQUE
+      - data_cleaning.KNN_IMPUTER_N_NEIGHBORS
+      - data_cleaning.TEST_SIZE
+      - data_cleaning.RANDOM_STATE
+    outs:
+      - data/interim/train.csv
+      - data/interim/test.csv
+      - data/interim/validation.csv
+
+
+  feature_engineering:
+    cmd: python src/feature_engineering.py
+    deps:
+      - src/feature_engineering.py
+      - data/interim/train.csv
+      - data/interim/test.csv
+      - data/interim/validation.csv
+    params:
+      - feature_engineering.ENCODING_TECHNIQUE
+      - feature_engineering.FEATURE_SELECTION_TECHNIQUE
+      - feature_engineering.ANOVA_K
+      - feature_engineering.SFS_FORWARD
+      - feature_engineering.N_ESTIMATORS
+      - feature_engineering.MAX_DEPTH
+      - feature_engineering.MIN_SAMPLES_SPLIT
+      - feature_engineering.MIN_SAMPLES_LEAF
+      - feature_engineering.MAX_FEATURES
+      - feature_engineering.RANDOM_STATE
+    outs:
+      - data/processed/train.csv
+      - data/processed/test.csv
+      - data/processed/validation.csv

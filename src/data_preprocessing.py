@@ -1,32 +1,37 @@
 import pandas as pd
 import numpy as np
 from sklearn.feature_selection import VarianceThreshold
-import pandas as pd
-import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer, KNNImputer
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+import yaml
 
-NULL_PERCENTAGE = 0.25
-VARIANCE_THRESHOLD = 0
-IMPUTATION_TECHNIQUE = 'mode'
-KNN_IMPUTER_N_NEIGHBORS = 5
-BINNING_THRESHOLD = 0.05
+# Load parameters
+params = yaml.safe_load(open('../params.yaml','r'))['data_cleaning']
 
-train_df = pd.read_csv('data/raw/Dev_data_to_be_shared.csv')
-val_df = pd.read_csv('data/raw/validation_data_to_be_shared.csv')
+DEV_DATA_PATH = params['DEV_DATA_PATH']
+VAL_DATA_PATH = params['VAL_DATA_PATH']
+NULL_PERCENTAGE = params['NULL_PERCENTAGE']
+VARIANCE_THRESHOLD = params['VARIANCE_THRESHOLD']
+IMPUTATION_TECHNIQUE = params['IMPUTATION_TECHNIQUE']
+KNN_IMPUTER_N_NEIGHBORS = params['KNN_IMPUTER_N_NEIGHBORS']
+TEST_SIZE = params['TEST_SIZE']
+RANDOM_STATE = params['RANDOM_STATE']
 
+# Load data
+train_df = pd.read_csv(DEV_DATA_PATH)
+val_df = pd.read_csv(VAL_DATA_PATH)
+
+
+# Drop columns with more than threshold percent of missing values
 def drop_null(threshold, df):
-    """
-    Drop columns with more than threshold percent of missing values
-    """
+    """ Dropping columns with more than threshold percent of missing values"""
     return df.loc[:, df.isnull().mean()  <= threshold]
 
 
 # Apply VarianceThreshold
 def remove_constant_features(df, threshold):
     """
-    Remove constant and quasi-constant features
+    Removing constant and quasi-constant features
     """
     # Apply VarianceThreshold
     selector = VarianceThreshold(threshold=threshold)
@@ -39,11 +44,12 @@ def remove_constant_features(df, threshold):
     df = pd.DataFrame(df, columns=selected_features)
     return df
 
+# Impute missing values
 def impute_data(df, technique):
-
+    print(f'using {technique} imputation technique')
     X = df.drop(columns=['bad_flag'])
     y = df['bad_flag']
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE)
     
     if technique == 'mean':
         # Simple Imputer (mean strategy)
@@ -111,33 +117,17 @@ def impute_validation_data(df, technique):
         raise ValueError('Invalid imputation technique')
     return df
 
-def grouping_minority_classes(df, threshold):
-    binary_features = []
-    for col in df.columns:
-        if df[col].dropna().nunique() == 2:
-            binary_features.append(col)
-            
-    multiclass_features = [feature for feature in df.columns if feature not in binary_features]
-    multiclass_features.remove('account_number')
-    for column in multiclass_features:
-        value_counts = df[column].value_counts(normalize=True)
-        rare_categories = value_counts[value_counts < threshold].index
-        df[column] = df[column].replace(rare_categories, 'OTHERS')
-        
-    return df
 
 
+# ############################################################################################
 def clean_data(df,type):
     df = drop_null(NULL_PERCENTAGE, df)
     df = remove_constant_features(df, VARIANCE_THRESHOLD)
     if type == 'DEV':
         train_df, test_df = impute_data(df, IMPUTATION_TECHNIQUE)
-        train_df = grouping_minority_classes(train_df, BINNING_THRESHOLD)
-        test_df = grouping_minority_classes(test_df,BINNING_THRESHOLD )
         return train_df, test_df
     elif type == 'VAL':
         df = impute_validation_data(df, IMPUTATION_TECHNIQUE)
-        df = grouping_minority_classes(df, BINNING_THRESHOLD)
         return df
 
 train_df, test_df = clean_data(train_df,'DEV')
@@ -145,4 +135,4 @@ val_df = clean_data(val_df, 'VAL')
 
 train_df.to_csv('data/interim/train.csv', index=False)
 test_df.to_csv('data/interim/test.csv', index=False)
-val_df.to_csv('data/interim/val.csv', index=False)
+val_df.to_csv('data/interim/validation.csv', index=False)
