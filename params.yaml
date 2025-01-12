@@ -1,6 +1,9 @@
 data_cleaning:
   DEV_DATA_PATH : 'data/raw/Dev_data_to_be_shared.csv'  # Path to the raw data
   VAL_DATA_PATH : 'data/raw/validation_data_to_be_shared.csv'  # Path to the raw validation data
+
+  ENCODING_TECHNIQUE : 'target'  # Encoding technique to be used for categorical features  'target' or 'ordinal'
+  
   NULL_PERCENTAGE : 0.25   # features with more than given missing values will be dropped
   VARIANCE_THRESHOLD : 0   # features with less variance than given threshold will be dropped
   IMPUTATION_TECHNIQUE : 'mode'  # Impuation technique to be used for missing values
@@ -9,7 +12,6 @@ data_cleaning:
   RANDOM_STATE : 42
 
 feature_engineering:
-  ENCODING_TECHNIQUE : 'target'  # Encoding technique to be used for categorical features  'target' or 'ordinal'
 
   FEATURE_IMPORTANCE_TECHNIQUE : 'combine'  # Feature importance technique to be used 'combine' or 'fisher' or 'rf' or 'xgb'
   NO_FEATURES : 40

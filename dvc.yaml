@@ -2,10 +2,11 @@ stages:
   data_cleaning:
     cmd: python src/data_preprocessing.py
     deps:
-      - src/data_cleaning.py
+      - src/data_preprocessing.py
       - data/raw/Dev_data_to_be_shared.csv
       - data/raw/validation_data_to_be_shared.csv
     params:
+      - data_cleaning.ENCODING_TECHNIQUE
       - data_cleaning.DEV_DATA_PATH
       - data_cleaning.VAL_DATA_PATH
       - data_cleaning.NULL_PERCENTAGE
@@ -28,7 +29,7 @@ stages:
       - data/interim/test.csv
       - data/interim/validation.csv
     params:
-      - feature_engineering.ENCODING_TECHNIQUE
+
       - feature_engineering.FEATURE_SELECTION_TECHNIQUE
       - feature_engineering.ANOVA_K
       - feature_engineering.SFS_FORWARD
@@ -43,4 +44,4 @@ stages:
     outs:
       - data/processed/train.csv
       - data/processed/test.csv
-      - data/processed/validation.csv
+      - data/processed/val.csv

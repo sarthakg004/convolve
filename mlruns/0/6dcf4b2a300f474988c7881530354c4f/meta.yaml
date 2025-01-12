@@ -1,0 +1,15 @@
+artifact_uri: mlflow-artifacts:/0/6dcf4b2a300f474988c7881530354c4f/artifacts
+end_time: 1736667372377
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 6dcf4b2a300f474988c7881530354c4f
+run_name: funny-fowl-736
+run_uuid: 6dcf4b2a300f474988c7881530354c4f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1736667337483
+status: 3
+tags: []
+user_id: sarth

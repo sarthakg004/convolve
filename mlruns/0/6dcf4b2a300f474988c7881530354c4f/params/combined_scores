@@ -1,0 +1,12 @@
+account_number       0.274315
+bureau_1             0.030017
+bureau_10            0.088337
+bureau_101           0.044622
+bureau_102           0.029068
+                       ...   
+onus_attribute_4     0.106618
+onus_attribute_40    0.162249
+onus_attribute_41    0.305820
+onus_attribute_42    0.208507
+onus_attribute_5     0.186506
+Length: 472, dtype: float64

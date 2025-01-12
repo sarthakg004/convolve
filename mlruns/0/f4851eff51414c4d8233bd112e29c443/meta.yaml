@@ -1,0 +1,15 @@
+artifact_uri: mlflow-artifacts:/0/f4851eff51414c4d8233bd112e29c443/artifacts
+end_time: 1736667227487
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: f4851eff51414c4d8233bd112e29c443
+run_name: bustling-cod-90
+run_uuid: f4851eff51414c4d8233bd112e29c443
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1736667227463
+status: 4
+tags: []
+user_id: sarth

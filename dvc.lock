@@ -1,0 +1,86 @@
+schema: '2.0'
+stages:
+  data_cleaning:
+    cmd: python src/data_preprocessing.py
+    deps:
+    - path: data/raw/Dev_data_to_be_shared.csv
+      hash: md5
+      md5: 604fb57d7d4debda34605cae2c7b4842
+      size: 293487740
+    - path: data/raw/validation_data_to_be_shared.csv
+      hash: md5
+      md5: 2afc6f4b619122415e5cf97a4aca907b
+      size: 126617929
+    - path: src/data_preprocessing.py
+      hash: md5
+      md5: 14c9624cea5fd3073044c6e5588c1dde
+      size: 5905
+    params:
+      params.yaml:
+        data_cleaning.DEV_DATA_PATH: data/raw/Dev_data_to_be_shared.csv
+        data_cleaning.ENCODING_TECHNIQUE: target
+        data_cleaning.IMPUTATION_TECHNIQUE: mode
+        data_cleaning.KNN_IMPUTER_N_NEIGHBORS: 5
+        data_cleaning.NULL_PERCENTAGE: 0.25
+        data_cleaning.RANDOM_STATE: 42
+        data_cleaning.TEST_SIZE: 0.2
+        data_cleaning.VAL_DATA_PATH: data/raw/validation_data_to_be_shared.csv
+        data_cleaning.VARIANCE_THRESHOLD: 0
+    outs:
+    - path: data/interim/test.csv
+      hash: md5
+      md5: 8c063eb8daf21935a9352cd120e894c8
+      size: 41368218
+    - path: data/interim/train.csv
+      hash: md5
+      md5: da5fd964d34a1bead664c707870aa39e
+      size: 165471400
+    - path: data/interim/validation.csv
+      hash: md5
+      md5: a809d799a0c400b1ed82691abec71850
+      size: 89275534
+  feature_engineering:
+    cmd: python src/feature_engineering.py
+    deps:
+    - path: data/interim/test.csv
+      hash: md5
+      md5: 8c063eb8daf21935a9352cd120e894c8
+      size: 41368218
+    - path: data/interim/train.csv
+      hash: md5
+      md5: da5fd964d34a1bead664c707870aa39e
+      size: 165471400
+    - path: data/interim/validation.csv
+      hash: md5
+      md5: a809d799a0c400b1ed82691abec71850
+      size: 89275534
+    - path: src/feature_engineering.py
+      hash: md5
+      md5: 12a6b694897b800316fa151672064970
+      size: 11592
+    params:
+      params.yaml:
+        feature_engineering.ANOVA_K: 40
+        feature_engineering.FEATURE_IMPORTANCE_TECHNIQUE: combine
+        feature_engineering.FEATURE_SELECTION_TECHNIQUE: anova
+        feature_engineering.MAX_DEPTH: 10
+        feature_engineering.MAX_FEATURES: sqrt
+        feature_engineering.MIN_SAMPLES_LEAF: 2
+        feature_engineering.MIN_SAMPLES_SPLIT: 5
+        feature_engineering.NO_FEATURES: 40
+        feature_engineering.N_ESTIMATORS: 200
+        feature_engineering.RANDOM_STATE: 42
+        feature_engineering.SFS_FORWARD: false
+    outs:
+    - path: data/processed/test.csv
+      hash: md5
+      md5: b452585b47159727cb79ce911e3bc13c
+      size: 3880736
+    - path: data/processed/train.csv
+      hash: md5
+      md5: c7b3d0502239191cbd6704a66df8d818
+      size: 15527132
+    - path: data/processed/val.csv
+      hash: md5
+      md5: 52cd2e7e520ffdb89857e2fb260d1342
+      size: 8293955

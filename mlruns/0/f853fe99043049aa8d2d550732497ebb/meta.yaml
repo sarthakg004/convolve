@@ -1,0 +1,15 @@
+artifact_uri: mlflow-artifacts:/0/f853fe99043049aa8d2d550732497ebb/artifacts
+end_time: 1736667095566
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: f853fe99043049aa8d2d550732497ebb
+run_name: fortunate-shrew-943
+run_uuid: f853fe99043049aa8d2d550732497ebb
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1736667062818
+status: 3
+tags: []
+user_id: sarth
