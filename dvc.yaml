@@ -20,7 +20,6 @@ stages:
       - data/interim/test.csv
       - data/interim/validation.csv
 
-
   feature_engineering:
     cmd: python src/feature_engineering.py
     deps:
@@ -29,7 +28,6 @@ stages:
       - data/interim/test.csv
       - data/interim/validation.csv
     params:
-
       - feature_engineering.FEATURE_SELECTION_TECHNIQUE
       - feature_engineering.ANOVA_K
       - feature_engineering.SFS_FORWARD
@@ -55,4 +53,16 @@ stages:
       - data/processed/val.csv
     params:
       - model_training.MODEL
-    
+      - model_training.HIDDEN_DIMS
+      - model_training.NO_LAYERS
+      - model_training.DROPOUT_RATE
+      - model_training.LEARNING_RATE
+      - model_training.WEIGHT_DECAY
+      - model_training.VAL_THRESHOLD
+      - model_training.BATCH_SIZE
+      - model_training.N_EPOCHS
+      - model_training.PATIENCE
+      - model_training.VAL_THRESHOLD
+      - model_training.STEP_SIZE
+      - model_training.GAMMA
+

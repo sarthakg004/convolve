@@ -140,7 +140,7 @@ with mlflow.start_run():
         selected_features = X_train.columns[selector.get_support()]
         X_test_selected = selector.transform(X_test)
 
-        logger.info(f"ANOVA feature selection completed. Selected features: {selected_features.tolist()}")
+        logger.info(f"ANOVA feature selection completed.")
         mlflow.log_param('selected_features', selected_features.tolist())
         mlflow.log_param('ANOVA_K', k)
 
@@ -213,7 +213,7 @@ with mlflow.start_run():
         sfs.fit(X_train.values, y_train.values)
         selected_features = [X_train.columns[idx] for idx in sfs.k_feature_idx_]
 
-        logger.info(f"Backward feature elimination completed. Selected features: {selected_features}")
+        logger.info(f"Backward feature elimination completed.")
         mlflow.log_param('selected_features', selected_features)
 
         X_train_selected = X_train[selected_features]
@@ -241,7 +241,6 @@ with mlflow.start_run():
 
         if technique != 'skip':
             feature_importance = get_feature_importance(train_df, FEATURE_IMPORTANCE_TECHNIQUE).nlargest(NO_FEATURES).index
-            logger.info(f"Top features based on importance: {feature_importance.tolist()}")
             
             selected_features, train_df, test_df = feature_selection(train_df, test_df, technique)
             val_df = val_df[selected_features]

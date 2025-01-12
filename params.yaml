@@ -6,17 +6,17 @@ data_cleaning:
   
   NULL_PERCENTAGE : 0.25   # features with more than given missing values will be dropped
   VARIANCE_THRESHOLD : 0   # features with less variance than given threshold will be dropped
-  IMPUTATION_TECHNIQUE : 'median'  # Impuation technique to be used for missing values
+  IMPUTATION_TECHNIQUE : 'mode'  # Impuation technique to be used for missing values
   KNN_IMPUTER_N_NEIGHBORS : 5    # Number of neighbors to be used for KNN imputation
   TEST_SIZE : 0.2     # Test size for train-test split
   RANDOM_STATE : 42
 
 feature_engineering:
 
-  FEATURE_IMPORTANCE_TECHNIQUE : 'combine'  # Feature importance technique to be used 'combine' or 'fisher' or 'rf' or 'xgb'
+  FEATURE_IMPORTANCE_TECHNIQUE : 'combine'  # Feature importance technique to be used 'combine' or 'fisher' or 'rf' or 'xgb' 
   NO_FEATURES : 40
 
-  FEATURE_SELECTION_TECHNIQUE : 'anova'  # Feature selection technique to be used    'anova' or 'backward' or 'autoencoder'
+  FEATURE_SELECTION_TECHNIQUE : 'skip'  # Feature selection technique to be used    'anova' or 'backward' or 'autoencoder' or'skip'
   ANOVA_K : 40  # Number of features to be selected using ANOVA
 
   # If selection technique is Sequential Backward Selection than hyperparameters of RF model
@@ -29,5 +29,16 @@ feature_engineering:
   RANDOM_STATE : 42
 
 model_training:
-  MODEL : 'xgb'
+  MODEL : 'mlp' 
+  NO_LAYERS : 10
+  HIDDEN_DIMS : [512, 512,256,256,256,128,128,64,32,16]
+  DROPOUT_RATE : 0.3
+  LEARNING_RATE : 0.001
+  WEIGHT_DECAY : 0.00001
+  BATCH_SIZE : 128
+  N_EPOCHS : 100
+  PATIENCE : 15
+  VAL_THRESHOLD : 0.01
+  STEP_SIZE : 10
+  GAMMA : 0.1
 

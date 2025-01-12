@@ -33,7 +33,7 @@ KNN_IMPUTER_N_NEIGHBORS = params['KNN_IMPUTER_N_NEIGHBORS']
 TEST_SIZE = params['TEST_SIZE']
 RANDOM_STATE = params['RANDOM_STATE']
 
-logging.info(f"Parameters loaded: {params}")
+logging.info(f"Parameters loaded Successfully.\n")
 
 with mlflow.start_run():
     try:
