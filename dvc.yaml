@@ -38,6 +38,8 @@ stages:
       - feature_engineering.MIN_SAMPLES_LEAF
       - feature_engineering.MAX_FEATURES
       - feature_engineering.RANDOM_STATE
+      - feature_engineering.NO_FEATURES
+      - feature_engineering.FEATURE_IMPORTANCE_TECHNIQUE
     outs:
       - data/processed/train.csv
       - data/processed/test.csv

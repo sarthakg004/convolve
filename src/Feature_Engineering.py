@@ -10,6 +10,8 @@ from mlxtend.feature_selection import SequentialFeatureSelector as SFS
 from sklearn.metrics import roc_curve, f1_score, roc_auc_score
 import torch
 from torch.utils.data import Dataset, DataLoader
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
@@ -20,6 +22,10 @@ import yaml
 params = yaml.safe_load(open('../params.yaml','r'))['feature_engineering']
 
 ENCODING_TECHNIQUE = params['ENCODING_TECHNIQUE']
+
+FEATURE_IMPORTANCE_TECHNIQUE = params['FEATURE_IMPORTANCE_TECHNIQUE']
+NO_FEATURES = params['NO_FEATURES']
+
 FEATURE_SELECTION_TECHNIQUE = params['FEATURE_SELECTION_TECHNIQUE']
 ANOVA_K = params['ANOVA_K']
 
@@ -77,7 +83,80 @@ def encode(train_df, test_df,val_df):
         return ordinal_encoding(train_df, test_df,val_df)
     else:
         raise ValueError(f"Invalid encoding technique: {ENCODING_TECHNIQUE}")
+###########################################################################################################################
+'''Feature Importance'''
+def calculate_fisher_score(train_df):
+    
+    X = train_df.drop(columns=['bad_flag'])
+    y = train_df['bad_flag']
+    # Convert to pandas DataFrame for easier manipulation if needed
+    if isinstance(X, np.ndarray):
+        X = pd.DataFrame(X)
+    if isinstance(y, np.ndarray):
+        y = pd.Series(y)
 
+    fisher_scores = {}
+
+    overall_mean = X.mean()
+    unique_classes = y.unique()
+
+    for feature in X.columns:
+        numerator = 0
+        denominator = 0
+
+        for cls in unique_classes:
+            class_data = X[feature][y == cls]
+            n_c = len(class_data)
+            mean_c = class_data.mean()
+            var_c = class_data.var()
+
+            numerator += n_c * (mean_c - overall_mean[feature]) ** 2
+            denominator += n_c * var_c
+
+        fisher_scores[feature] = numerator / (denominator + 1e-8)  # Add small value to avoid division by zero
+        
+        # top_features = fisher_scores.nlargest(num_features).index
+
+    return pd.Series(fisher_scores).sort_values(ascending=False)
+
+def get_feature_importance_random_forest(train_df):
+    X_train = train_df.drop(columns=['bad_flag'])
+    y_train = train_df['bad_flag']
+    rf = RandomForestClassifier(n_estimators=100, random_state=42)
+    rf.fit(X_train, y_train)
+    importance = rf.feature_importances_
+    return pd.Series(importance, index=X_train.columns).sort_values(ascending=False)
+
+def get_feature_importance_xgboost(train_df):
+    X_train = train_df.drop(columns=['bad_flag'])
+    y_train = train_df['bad_flag']
+    xgb = XGBClassifier(use_label_encoder=False, eval_metric="logloss", random_state=42)
+    xgb.fit(X_train, y_train)
+    importance = xgb.feature_importances_
+    return pd.Series(importance, index=X_train.columns).sort_values(ascending=False)
+
+def combine_feature_scores(train_df):
+    fisher_scores = calculate_fisher_score(train_df)
+    rf_importance = get_feature_importance_random_forest(train_df)
+    xgb_importance = get_feature_importance_xgboost(train_df)
+    # Normalize all scores to [0, 1]
+    fisher_scores_normalized = (fisher_scores - fisher_scores.min()) / (fisher_scores.max() - fisher_scores.min())
+    rf_importance_normalized = (rf_importance - rf_importance.min()) / (rf_importance.max() - rf_importance.min())
+    xgb_importance_normalized = (xgb_importance - xgb_importance.min()) / (xgb_importance.max() - xgb_importance.min())
+    
+    # Combine the scores (simple average, could add weights if needed)
+    combined_scores = (fisher_scores_normalized + rf_importance_normalized + xgb_importance_normalized) / 3
+    return combined_scores.sort_values(ascending=False)
+
+def get_feature_importance(train_df,feature_selection_technique, num_features):
+    if feature_selection_technique == 'fisher':
+        return calculate_fisher_score(train_df, num_features)
+    elif feature_selection_technique == 'rf':
+        return get_feature_importance_random_forest(train_df)
+    elif feature_selection_technique == 'xgb':
+        return get_feature_importance_xgboost(train_df)
+    elif feature_selection_technique == 'combine':
+        return combine_feature_scores(train_df)
 
 ###########################################################################################################################
 ''' Feature Selection '''
@@ -183,8 +262,12 @@ def feature_selection(train_df, test_df, technique):
 
 #################################################################################################################################
 def get_final_data(train_df, test_df,val_df, technique):
-    train_df , test_df,val_df = encode(train_df, test_df,val_df)
+    # train_df , test_df,val_df = encode(train_df, test_df,val_df)
+    
+    feature_importance = get_feature_importance(train_df, FEATURE_IMPORTANCE_TECHNIQUE).nlargest(NO_FEATURES).index
+    
     selected_features,train_df , test_df = feature_selection(train_df, test_df, technique)
+    
     val_df = val_df[selected_features]
     return train_df, test_df,val_df
 

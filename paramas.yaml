@@ -10,6 +10,10 @@ data_cleaning:
 
 feature_engineering:
   ENCODING_TECHNIQUE : 'target'  # Encoding technique to be used for categorical features  'target' or 'ordinal'
+
+  FEATURE_IMPORTANCE_TECHNIQUE : 'combine'  # Feature importance technique to be used 'combine' or 'fisher' or 'rf' or 'xgb'
+  NO_FEATURES : 40
+
   FEATURE_SELECTION_TECHNIQUE : 'anova'  # Feature selection technique to be used    'anova' or 'backward' or 'autoencoder'
   ANOVA_K : 40  # Number of features to be selected using ANOVA
 
