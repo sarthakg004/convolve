@@ -45,3 +45,14 @@ stages:
       - data/processed/train.csv
       - data/processed/test.csv
       - data/processed/val.csv
+
+  model_training:
+    cmd: python src/Model_Building.py
+    deps:
+      - src/Model_Building.py
+      - data/processed/train.csv
+      - data/processed/test.csv
+      - data/processed/val.csv
+    params:
+      - model_training.MODEL
+    

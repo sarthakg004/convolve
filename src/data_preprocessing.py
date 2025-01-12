@@ -7,6 +7,11 @@ from sklearn.impute import SimpleImputer, KNNImputer
 import yaml
 import category_encoders as ce
 import mlflow
+import dagshub
+
+dagshub.init(repo_owner='sarthakg004', repo_name='convolve', mlflow=True)
+
+mlflow.set_tracking_uri("https://dagshub.com/sarthakg004/convolve.mlflow")
 
 # Configure logging for terminal output
 logging.basicConfig(
@@ -16,7 +21,7 @@ logging.basicConfig(
 
 # Load parameters
 logging.info("Loading parameters from params.yaml.")
-params = yaml.safe_load(open('../params.yaml', 'r'))['data_cleaning']
+params = yaml.safe_load(open('./params.yaml', 'r'))['data_cleaning']
 
 ENCODING_TECHNIQUE = params['ENCODING_TECHNIQUE']
 DEV_DATA_PATH = params['DEV_DATA_PATH']
@@ -148,6 +153,7 @@ with mlflow.start_run():
         train_df.to_csv('data/interim/train.csv', index=False)
         test_df.to_csv('data/interim/test.csv', index=False)
         val_df.to_csv('data/interim/validation.csv', index=False)
+        
         logging.info("Cleaned and encoded data saved successfully.")
 
     except Exception as e:

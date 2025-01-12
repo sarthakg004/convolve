@@ -13,13 +13,13 @@ stages:
       size: 126617929
     - path: src/data_preprocessing.py
       hash: md5
-      md5: 14c9624cea5fd3073044c6e5588c1dde
-      size: 5905
+      md5: d4d5a7a62e8e080ae0a6193c4ac42070
+      size: 7359
     params:
       params.yaml:
         data_cleaning.DEV_DATA_PATH: data/raw/Dev_data_to_be_shared.csv
         data_cleaning.ENCODING_TECHNIQUE: target
-        data_cleaning.IMPUTATION_TECHNIQUE: mode
+        data_cleaning.IMPUTATION_TECHNIQUE: median
         data_cleaning.KNN_IMPUTER_N_NEIGHBORS: 5
         data_cleaning.NULL_PERCENTAGE: 0.25
         data_cleaning.RANDOM_STATE: 42
@@ -29,35 +29,35 @@ stages:
     outs:
     - path: data/interim/test.csv
       hash: md5
-      md5: 8c063eb8daf21935a9352cd120e894c8
-      size: 41368218
+      md5: eea73451490c77b4e5414291576dc69f
+      size: 41468459
     - path: data/interim/train.csv
       hash: md5
-      md5: da5fd964d34a1bead664c707870aa39e
-      size: 165471400
+      md5: 45ce0f720aae4718bc583cbea5fd5837
+      size: 165883941
     - path: data/interim/validation.csv
       hash: md5
-      md5: a809d799a0c400b1ed82691abec71850
-      size: 89275534
+      md5: 874b3c73cf930957c0d26b74c5956930
+      size: 89474672
   feature_engineering:
     cmd: python src/feature_engineering.py
     deps:
     - path: data/interim/test.csv
       hash: md5
-      md5: 8c063eb8daf21935a9352cd120e894c8
-      size: 41368218
+      md5: eea73451490c77b4e5414291576dc69f
+      size: 41468459
     - path: data/interim/train.csv
       hash: md5
-      md5: da5fd964d34a1bead664c707870aa39e
-      size: 165471400
+      md5: 45ce0f720aae4718bc583cbea5fd5837
+      size: 165883941
     - path: data/interim/validation.csv
       hash: md5
-      md5: a809d799a0c400b1ed82691abec71850
-      size: 89275534
+      md5: 874b3c73cf930957c0d26b74c5956930
+      size: 89474672
     - path: src/feature_engineering.py
       hash: md5
-      md5: 12a6b694897b800316fa151672064970
-      size: 11592
+      md5: dce405e035a85dd90e70ef44ae0e3d17
+      size: 12370
     params:
       params.yaml:
         feature_engineering.ANOVA_K: 40
@@ -74,13 +74,35 @@ stages:
     outs:
     - path: data/processed/test.csv
       hash: md5
-      md5: b452585b47159727cb79ce911e3bc13c
-      size: 3880736
+      md5: fbacbadb84090097e0aa595d29030f59
+      size: 3892848
     - path: data/processed/train.csv
       hash: md5
-      md5: c7b3d0502239191cbd6704a66df8d818
-      size: 15527132
+      md5: 5e9714524e3a6267bb02ed7943a84c24
+      size: 15575952
     - path: data/processed/val.csv
       hash: md5
-      md5: 52cd2e7e520ffdb89857e2fb260d1342
-      size: 8293955
+      md5: 73df122befa72f2fd71c57d4bbdf8211
+      size: 8319833
+  model_training:
+    cmd: python src/Model_Building.py
+    deps:
+    - path: data/processed/test.csv
+      hash: md5
+      md5: fbacbadb84090097e0aa595d29030f59
+      size: 3892848
+    - path: data/processed/train.csv
+      hash: md5
+      md5: 5e9714524e3a6267bb02ed7943a84c24
+      size: 15575952
+    - path: data/processed/val.csv
+      hash: md5
+      md5: 73df122befa72f2fd71c57d4bbdf8211
+      size: 8319833
+    - path: src/Model_Building.py
+      hash: md5
+      md5: f7f42b088597a36dcbcc160037bd2b9a
+      size: 4417
+    params:
+      params.yaml:
+        model_training.MODEL: xgb

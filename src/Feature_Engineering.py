@@ -15,6 +15,11 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 import mlflow
 import yaml
+import dagshub
+
+dagshub.init(repo_owner='sarthakg004', repo_name='convolve', mlflow=True)
+
+mlflow.set_tracking_uri("https://dagshub.com/sarthakg004/convolve.mlflow")
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -230,25 +235,33 @@ with mlflow.start_run():
             raise ValueError(f"Invalid feature selection technique: {technique}")
 
 
-        #################################################################################################################################
+    #################################################################################################################################
     def get_final_data(train_df, test_df, val_df, technique):
         logger.info("Getting final data after feature selection...")
 
-        feature_importance = get_feature_importance(train_df, FEATURE_IMPORTANCE_TECHNIQUE).nlargest(NO_FEATURES).index
-        logger.info(f"Top features based on importance: {feature_importance.tolist()}")
+        if technique != 'skip':
+            feature_importance = get_feature_importance(train_df, FEATURE_IMPORTANCE_TECHNIQUE).nlargest(NO_FEATURES).index
+            logger.info(f"Top features based on importance: {feature_importance.tolist()}")
+            
+            selected_features, train_df, test_df = feature_selection(train_df, test_df, technique)
+            val_df = val_df[selected_features]
 
-        selected_features, train_df, test_df = feature_selection(train_df, test_df, technique)
-        val_df = val_df[selected_features]
-
-        logger.info("Final data preparation completed.")
-        return train_df, test_df, val_df
+            logger.info("Final data preparation completed.")
+            return train_df, test_df, val_df
+        else:
+            logger.info("Skipping feature selection.")
+            return train_df, test_df, val_df
 
     # Load data
     logger.info("Loading data...")
     train_df = pd.read_csv('./data/interim/train.csv')
     test_df = pd.read_csv('./data/interim/test.csv')
     val_df = pd.read_csv('./data/interim/validation.csv')
-
+    
+    mlflow.log_input(mlflow.data.from_pandas(train_df),'interim_training_data')
+    mlflow.log_input(mlflow.data.from_pandas(test_df),'interim_testing_data')
+    mlflow.log_input(mlflow.data.from_pandas(val_df),'interim_validation_data')
+    
     logger.info("Data loaded successfully. Starting processing...")
     train_df, test_df, val_df = get_final_data(train_df, test_df, val_df, FEATURE_SELECTION_TECHNIQUE)
 
@@ -256,4 +269,9 @@ with mlflow.start_run():
     train_df.to_csv('./data/processed/train.csv', index=False)
     test_df.to_csv('./data/processed/test.csv', index=False)
     val_df.to_csv('./data/processed/val.csv', index=False)
+    
+    mlflow.log_artifact('./data/processed/train.csv')
+    mlflow.log_artifact('./data/processed/test.csv')
+    mlflow.log_artifact('./data/processed/val.csv')
+    
     logger.info("Processed data saved successfully.")

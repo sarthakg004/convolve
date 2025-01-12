@@ -6,7 +6,7 @@ data_cleaning:
   
   NULL_PERCENTAGE : 0.25   # features with more than given missing values will be dropped
   VARIANCE_THRESHOLD : 0   # features with less variance than given threshold will be dropped
-  IMPUTATION_TECHNIQUE : 'mode'  # Impuation technique to be used for missing values
+  IMPUTATION_TECHNIQUE : 'median'  # Impuation technique to be used for missing values
   KNN_IMPUTER_N_NEIGHBORS : 5    # Number of neighbors to be used for KNN imputation
   TEST_SIZE : 0.2     # Test size for train-test split
   RANDOM_STATE : 42
@@ -27,4 +27,7 @@ feature_engineering:
   MIN_SAMPLES_LEAF : 2
   MAX_FEATURES : 'sqrt'
   RANDOM_STATE : 42
+
+model_training:
+  MODEL : 'xgb'
 
