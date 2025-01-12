@@ -18,3 +18,5 @@ tqdm
 mlflow
 dagshub
 category_encoders
+torchinfo
+optuna

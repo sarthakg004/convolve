@@ -53,16 +53,32 @@ stages:
       - data/processed/val.csv
     params:
       - model_training.MODEL
-      - model_training.HIDDEN_DIMS
+      - model_training.MAX_DEPTH 
+      - model_training.OBJECTIVE
+      - model_training.EVAL_METRIC
+      - model_training.ETA  
+      - model_training.SUB_SAMPLE
+      - model_training.COL_SAMPLE_BY_TREE 
+      - model_training.MIN_CHILD_WEIGHT
+      - model_training.GAMMA_XGB 
+      - model_training.LAMBDA 
+      - model_training.ALPHA
+      - model_training.SCALE_POS_WEIGHT
+      - model_training.N_ESTIMATORS
+      - model_training.TREE_METHOD
+      - model_training.DEVICE
+      - model_training.SEED
+      - model_training.N_TRIALS
+      - model_training.TIMEOUT
       - model_training.NO_LAYERS
+      - model_training.HIDDEN_DIMS
       - model_training.DROPOUT_RATE
       - model_training.LEARNING_RATE
       - model_training.WEIGHT_DECAY
-      - model_training.VAL_THRESHOLD
       - model_training.BATCH_SIZE
       - model_training.N_EPOCHS
       - model_training.PATIENCE
-      - model_training.VAL_THRESHOLD
+      - model_training.VAL_THRESHOLD 
       - model_training.STEP_SIZE
       - model_training.GAMMA
 

@@ -60,7 +60,6 @@ with mlflow.start_run():
             selector = VarianceThreshold(threshold=threshold)
             selector.fit_transform(df)
             selected_features = df.columns[selector.get_support()]
-            logging.info(f"Selected features: {list(selected_features)}")
             df = pd.DataFrame(df, columns=selected_features)
             return df
         ##################################################################################################################

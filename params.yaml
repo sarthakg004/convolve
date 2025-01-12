@@ -10,7 +10,7 @@ data_cleaning:
   KNN_IMPUTER_N_NEIGHBORS : 5    # Number of neighbors to be used for KNN imputation
   TEST_SIZE : 0.2     # Test size for train-test split
   RANDOM_STATE : 42
-
+##################################################################################################################################################
 feature_engineering:
 
   FEATURE_IMPORTANCE_TECHNIQUE : 'combine'  # Feature importance technique to be used 'combine' or 'fisher' or 'rf' or 'xgb' 
@@ -28,8 +28,32 @@ feature_engineering:
   MAX_FEATURES : 'sqrt'
   RANDOM_STATE : 42
 
+############################################################################################################################################################
+
 model_training:
-  MODEL : 'mlp' 
+  MODEL : 'xgb' 
+
+  # Hyperparameters Space of XGB model
+  MAX_DEPTH : [3,15]
+  OBJECTIVE: 'binary:logistic'
+  EVAL_METRIC: 'logloss'
+  ETA  : [0.005, 0.3]
+  SUB_SAMPLE : [0.5, 1.0]
+  COL_SAMPLE_BY_TREE : [0.5, 1.0]
+  MIN_CHILD_WEIGHT: [1, 20]
+  GAMMA_XGB :  [0, 5] # Gamma range
+  LAMBDA : [0, 10]  # L2 regularization range
+  ALPHA : [0, 10] # L1 regularization range
+  SCALE_POS_WEIGHT : [1, 10]   # Class imbalance correction
+  N_ESTIMATORS: [50, 500]  # Number of boosting rounds
+  TREE_METHOD: 'hist'
+  DEVICE: 'cuda'
+  SEED: 42
+
+  N_TRIALS : 10
+  TIMEOUT : 3600
+
+  # Hyperparameters of MLP model
   NO_LAYERS : 10
   HIDDEN_DIMS : [512, 512,256,256,256,128,128,64,32,16]
   DROPOUT_RATE : 0.3

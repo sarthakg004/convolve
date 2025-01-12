@@ -1,21 +1,19 @@
 import pandas as pd
 import numpy as np
-import pandas as pd
-from sklearn.metrics import (
-    precision_score, recall_score, f1_score, confusion_matrix, roc_curve, auc,classification_report
-)
+import optuna
 import yaml
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 from torchinfo import summary
-from sklearn.metrics import accuracy_score,precision_score, recall_score, f1_score, roc_auc_score, roc_curve, confusion_matrix, classification_report
+from sklearn.metrics import accuracy_score,precision_score, recall_score, f1_score, roc_auc_score,auc, roc_curve, confusion_matrix, classification_report
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import xgboost as xgb
 import seaborn as sns
+import pickle
 import matplotlib.pyplot as plt
 import mlflow
 import dagshub
@@ -28,6 +26,26 @@ mlflow.set_tracking_uri("https://dagshub.com/sarthakg004/convolve.mlflow")
 params = yaml.safe_load(open("params.yaml"))['model_training']
 
 MODEL = params['MODEL']
+
+## Hyperparameter space for XGBoost model
+N_TRIALS          = params['N_TRIALS']
+TIMEOUT          = params['TIMEOUT']
+MAX_DEPTH         = params['MAX_DEPTH']
+OBJECTIVE         =params['OBJECTIVE']
+EVAL_METRIC       =params['EVAL_METRIC']
+ETA               =params['ETA']
+SUB_SAMPLE        =params['SUB_SAMPLE']
+COL_SAMPLE_BY_TREE=params['COL_SAMPLE_BY_TREE']
+MIN_CHILD_WEIGHT  =params['MIN_CHILD_WEIGHT']
+GAMMA_XGB         =params['GAMMA_XGB']
+LAMBDA            =params['LAMBDA']
+ALPHA             =params['ALPHA']
+SCALE_POS_WEIGHT  =params['SCALE_POS_WEIGHT']
+N_ESTIMATORS      =params['N_ESTIMATORS']
+TREE_METHOD       =params['TREE_METHOD']
+DEVICE            =params['DEVICE']
+SEED              =params['SEED']
+
 
 # Hyperparameters for MLP model 
 NO_LAYERS = params['NO_LAYERS']
@@ -51,24 +69,68 @@ with mlflow.start_run():
         X_test = test_df.drop(columns=['bad_flag'])
         y_test = test_df['bad_flag']
         
-        # Convert data into DMatrix (XGBoost's data structure)
+
+        
+        # Define the Optuna objective function
+        def objective(trial):
+            # Suggest hyperparameters
+            params = {
+                'objective': OBJECTIVE,
+                'eval_metric': EVAL_METRIC,
+                'max_depth': trial.suggest_int('max_depth', MAX_DEPTH[0], MAX_DEPTH[1]),  # Increased max_depth range
+                'eta': trial.suggest_float('eta', ETA[0], ETA[1], log=True),  # More granular eta range
+                'subsample': trial.suggest_float('subsample', SUB_SAMPLE[0], SUB_SAMPLE[1]),  # Subsample range
+                'colsample_bytree': trial.suggest_float('colsample_bytree', COL_SAMPLE_BY_TREE[0], COL_SAMPLE_BY_TREE[1]),  # Colsample range
+                'min_child_weight': trial.suggest_int('min_child_weight', MIN_CHILD_WEIGHT[0], MIN_CHILD_WEIGHT[1]),  # Increased min_child_weight range
+                'gamma': trial.suggest_float('gamma', GAMMA_XGB[0], GAMMA_XGB[1]),  # Gamma range
+                'lambda': trial.suggest_float('lambda', LAMBDA[0], LAMBDA[1]),  # L2 regularization range
+                'alpha': trial.suggest_float('alpha', ALPHA[0], ALPHA[1]),  # L1 regularization range
+                'scale_pos_weight': trial.suggest_float('scale_pos_weight', SCALE_POS_WEIGHT[0], SCALE_POS_WEIGHT[1]),  # Class imbalance correction
+                'n_estimators': trial.suggest_int('n_estimators', N_ESTIMATORS[0], N_ESTIMATORS[1]),  # Number of boosting rounds
+                'tree_method': TREE_METHOD, 
+                'device': DEVICE,
+                'seed': SEED
+            }
+            # Convert data into DMatrix (XGBoost's data structure)
+            dtrain = xgb.DMatrix(X_train, label=y_train)
+            dtest = xgb.DMatrix(X_test, label=y_test)       
+            
+            
+        
+            # Train the model
+            bst = xgb.train(params, dtrain, num_boost_round=params['n_estimators'], verbose_eval=False)
+            
+            # Predict probabilities
+            y_pred_prob = bst.predict(dtest)
+            
+            # Calculate AUC
+            auc_score = roc_auc_score(y_test, y_pred_prob)
+            return auc_score  # Optuna will maximize this
+        
+        # Run Optuna study
+        study = optuna.create_study(direction='maximize')
+        study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
+        
+        mlflow.log_params(study.best_params)
+        
+        # Train the model using the best hyperparameters
+        best_params = study.best_params
+        best_params['objective'] = 'binary:logistic'
+        best_params['eval_metric'] = 'logloss'
+        best_params['seed'] = 42
+        best_params['tree_method'] = 'hist' 
+        best_params['device'] = 'cuda'
+        
         dtrain = xgb.DMatrix(X_train, label=y_train)
         dtest = xgb.DMatrix(X_test, label=y_test)
-        
-        params = {'objective': 'binary:logistic',
-                'eval_metric': 'logloss',
-                'max_depth': 6,
-                'eta': 0.1,
-                'seed': 42
-            }
-        
-        mlflow.log_params(params)
-        
-        # Train the XGBoost model
-        bst = xgb.train(params, dtrain, num_boost_round=100)
-        
+
+        bst = xgb.train(best_params, dtrain, num_boost_round=100)
+
+        # Save the model to a file
+        with open('./models/xgboost_model.pkl', 'wb') as f:
+            pickle.dump(bst, f)
+
         # Log the model
-        
         mlflow.xgboost.log_model(bst, "model")
         
         # Make predictions
