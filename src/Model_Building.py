@@ -17,6 +17,11 @@ import pickle
 import matplotlib.pyplot as plt
 import mlflow
 import dagshub
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 dagshub.init(repo_owner='sarthakg004', repo_name='convolve', mlflow=True)
 
@@ -62,85 +67,68 @@ GAMMA = params['GAMMA']
 
 with mlflow.start_run():
     
-    def XGB(train_df,test_df):
-        # Split the data into train and test sets
+    def XGB(train_df, test_df):
+        logger.info("Starting XGB model training.")
+        
         X_train = train_df.drop(columns=['bad_flag'])
         y_train = train_df['bad_flag']
         X_test = test_df.drop(columns=['bad_flag'])
         y_test = test_df['bad_flag']
-        
+        logger.info("Data split into train and test sets.")
 
-        
-        # Define the Optuna objective function
         def objective(trial):
-            # Suggest hyperparameters
             params = {
                 'objective': OBJECTIVE,
                 'eval_metric': EVAL_METRIC,
-                'max_depth': trial.suggest_int('max_depth', MAX_DEPTH[0], MAX_DEPTH[1]),  # Increased max_depth range
-                'eta': trial.suggest_float('eta', ETA[0], ETA[1], log=True),  # More granular eta range
-                'subsample': trial.suggest_float('subsample', SUB_SAMPLE[0], SUB_SAMPLE[1]),  # Subsample range
-                'colsample_bytree': trial.suggest_float('colsample_bytree', COL_SAMPLE_BY_TREE[0], COL_SAMPLE_BY_TREE[1]),  # Colsample range
-                'min_child_weight': trial.suggest_int('min_child_weight', MIN_CHILD_WEIGHT[0], MIN_CHILD_WEIGHT[1]),  # Increased min_child_weight range
-                'gamma': trial.suggest_float('gamma', GAMMA_XGB[0], GAMMA_XGB[1]),  # Gamma range
-                'lambda': trial.suggest_float('lambda', LAMBDA[0], LAMBDA[1]),  # L2 regularization range
-                'alpha': trial.suggest_float('alpha', ALPHA[0], ALPHA[1]),  # L1 regularization range
-                'scale_pos_weight': trial.suggest_float('scale_pos_weight', SCALE_POS_WEIGHT[0], SCALE_POS_WEIGHT[1]),  # Class imbalance correction
-                'n_estimators': trial.suggest_int('n_estimators', N_ESTIMATORS[0], N_ESTIMATORS[1]),  # Number of boosting rounds
+                'max_depth': trial.suggest_int('max_depth', MAX_DEPTH[0], MAX_DEPTH[1]),
+                'eta': trial.suggest_float('eta', ETA[0], ETA[1], log=True),
+                'subsample': trial.suggest_float('subsample', SUB_SAMPLE[0], SUB_SAMPLE[1]),
+                'colsample_bytree': trial.suggest_float('colsample_bytree', COL_SAMPLE_BY_TREE[0], COL_SAMPLE_BY_TREE[1]),
+                'min_child_weight': trial.suggest_int('min_child_weight', MIN_CHILD_WEIGHT[0], MIN_CHILD_WEIGHT[1]),
+                'gamma': trial.suggest_float('gamma', GAMMA_XGB[0], GAMMA_XGB[1]),
+                'lambda': trial.suggest_float('lambda', LAMBDA[0], LAMBDA[1]),
+                'alpha': trial.suggest_float('alpha', ALPHA[0], ALPHA[1]),
+                'scale_pos_weight': trial.suggest_float('scale_pos_weight', SCALE_POS_WEIGHT[0], SCALE_POS_WEIGHT[1]),
+                'n_estimators': trial.suggest_int('n_estimators', N_ESTIMATORS[0], N_ESTIMATORS[1]),
                 'tree_method': TREE_METHOD, 
                 'device': DEVICE,
                 'seed': SEED
             }
-            # Convert data into DMatrix (XGBoost's data structure)
             dtrain = xgb.DMatrix(X_train, label=y_train)
-            dtest = xgb.DMatrix(X_test, label=y_test)       
-            
-            
-        
-            # Train the model
+            dtest = xgb.DMatrix(X_test, label=y_test)
             bst = xgb.train(params, dtrain, num_boost_round=params['n_estimators'], verbose_eval=False)
-            
-            # Predict probabilities
             y_pred_prob = bst.predict(dtest)
-            
-            # Calculate AUC
             auc_score = roc_auc_score(y_test, y_pred_prob)
-            return auc_score  # Optuna will maximize this
-        
-        # Run Optuna study
+            return auc_score
+
+        logger.info("Running Optuna study for finding ~best parameters.")
         study = optuna.create_study(direction='maximize')
         study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
-        
+
+        logger.info("Best hyperparameters found: %s", study.best_params)
         mlflow.log_params(study.best_params)
-        
-        # Train the model using the best hyperparameters
+
         best_params = study.best_params
         best_params['objective'] = 'binary:logistic'
         best_params['eval_metric'] = 'logloss'
         best_params['seed'] = 42
-        best_params['tree_method'] = 'hist' 
+        best_params['tree_method'] = 'hist'
         best_params['device'] = 'cuda'
         
         dtrain = xgb.DMatrix(X_train, label=y_train)
         dtest = xgb.DMatrix(X_test, label=y_test)
-
         bst = xgb.train(best_params, dtrain, num_boost_round=100)
 
-        # Save the model to a file
         with open('./models/xgboost_model.pkl', 'wb') as f:
             pickle.dump(bst, f)
-
-        # Log the model
+            
+        logger.info("Model saved to ./models/xgboost_model.pkl")
         mlflow.xgboost.log_model(bst, "model")
-        
-        # Make predictions
-        y_pred_prob = bst.predict(dtest)
 
-        # Compute ROC curve and AUC score
+        y_pred_prob = bst.predict(dtest)
         fpr, tpr, thresholds = roc_curve(y_test, y_pred_prob)
         roc_auc = auc(fpr, tpr)
 
-        # Plot the ROC curve
         plt.figure(figsize=(8, 6))
         plt.plot(fpr, tpr, color='blue', lw=2, label=f"ROC Curve (AUC = {roc_auc:.2f})")
         plt.plot([0, 1], [0, 1], color='gray', linestyle='--')
@@ -150,35 +138,26 @@ with mlflow.start_run():
         plt.legend(loc="lower right")
         plt.grid()
         plt.savefig('./assets/roc_curve.png')
-        
-        mlflow.log_metric('AUC',roc_auc)
-        mlflow.log_artifact('./assets/roc_curve.png')
 
-        # Find the optimal threshold (Youden's J statistic)
+        mlflow.log_metric('AUC', roc_auc)
+        mlflow.log_artifact('./assets/roc_curve.png')
+        logger.info("ROC curve saved to ./assets/roc_curve.png")
+
         optimal_idx = np.argmax(tpr - fpr)
         optimal_threshold = thresholds[optimal_idx]
+        logger.info(f"Optimal Threshold: {optimal_threshold:.2f}")
+        mlflow.log_metric('Optimal Threshold', optimal_threshold)
 
-        print(f"Optimal Threshold: {optimal_threshold:.2f}")
-
-        mlflow.log_metric('Optimal Threshold',optimal_threshold)
-        
-        # Apply the optimal threshold
         y_pred_optimal = (y_pred_prob > optimal_threshold).astype(int)
-
-        # Calculate evaluation metrics with optimal threshold
         precision = precision_score(y_test, y_pred_optimal)
         recall = recall_score(y_test, y_pred_optimal)
         f1 = f1_score(y_test, y_pred_optimal)
 
-        print(f"Precision: {precision:.2f}")
-        print(f"Recall: {recall:.2f}")
-        print(f"F1-Score: {f1:.2f}")
-        
-        mlflow.log_metric('Precision',precision)
-        mlflow.log_metric('Recall',recall)
-        mlflow.log_metric('F1-Score',f1)
-        
-        # Confusion matrix with optimal threshold
+        logger.info(f"Precision: {precision:.2f}, Recall: {recall:.2f}, F1-Score: {f1:.2f}")
+        mlflow.log_metric('Precision', precision)
+        mlflow.log_metric('Recall', recall)
+        mlflow.log_metric('F1-Score', f1)
+
         cm = confusion_matrix(y_test, y_pred_optimal)
         plt.figure(figsize=(8, 6))
         sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Class 0', 'Class 1'], yticklabels=['Class 0', 'Class 1'])
@@ -186,15 +165,16 @@ with mlflow.start_run():
         plt.ylabel('Actual')
         plt.title('Confusion Matrix')
         plt.savefig('./assets/confusion_matrix.png')
-        
         mlflow.log_artifact('./assets/confusion_matrix.png')
+        logger.info("Confusion matrix saved to ./assets/confusion_matrix.png")
     
     ###########################################################################################################################
     # Define MLP function
     def MLP(train_df, test_df):
         # Check for GPU
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        print(f"Using device: {device}")
+        print(f"[INFO] Using device: {device}")
+
 
         # Define custom dataset class
         class FraudDataset(Dataset):
@@ -249,6 +229,7 @@ with mlflow.start_run():
                         self.early_stop = True
 
         # Prepare data
+        print(f"PREPARING DATA")
         X_train = train_df.drop("bad_flag", axis=1).values
         y_train = train_df["bad_flag"].values
         X_val = test_df.drop("bad_flag", axis=1).values
@@ -260,6 +241,7 @@ with mlflow.start_run():
         val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, pin_memory=True)
 
         # Model setup
+        print("[INFO] Initializing the MLP model...")
         INPUT_DIM = X_train.shape[1]
         model = FraudMLP(INPUT_DIM, NO_LAYERS, HIDDEN_DIMS).to(device)
         criterion = nn.BCELoss()
@@ -281,7 +263,7 @@ with mlflow.start_run():
 
         # Training loop
         early_stopping = EarlyStopping(patience=PATIENCE)
-
+        print(f"[INFO] Starting training for {N_EPOCHS} epochs with patience {PATIENCE}...")
         for epoch in range(N_EPOCHS):
             model.train()
             train_loss = 0
@@ -326,7 +308,7 @@ with mlflow.start_run():
 
             early_stopping(val_loss, model)
             if early_stopping.early_stop:
-                print("Early stopping triggered.")
+                print("[INFO] Early stopping triggered. Stopping training.")
                 break
 
         torch.save(model.state_dict(), "./models/fraud_mlp.pth")
@@ -351,8 +333,10 @@ with mlflow.start_run():
         plt.legend(loc="lower right")
         plt.savefig('./assets/roc_auc_curve.png')
         mlflow.log_artifact('./assets/roc_auc_curve.png')
+        print("[INFO] ROC-AUC Curve saved at './assets/roc_auc_curve.png'")
 
         # Final testing
+        print("[INFO] Evaluating on test set with optimal threshold...")
         test_dataset = FraudDataset(X_val, y_val)
         test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE)
 
@@ -371,7 +355,7 @@ with mlflow.start_run():
         final_preds = (np.array(test_probs) > optimal_threshold).astype(int)
 
         # Metrics
-        accuracy = precision_score(test_targets, final_preds, zero_division=0)
+        accuracy = accuracy_score(test_targets, final_preds, zero_division=0)
         precision = precision_score(test_targets, final_preds, zero_division=0)
         recall = recall_score(test_targets, final_preds, zero_division=0)
         f1 = f1_score(test_targets, final_preds, zero_division=0)
@@ -392,6 +376,8 @@ with mlflow.start_run():
         plt.ylabel("Actual")
         plt.title("Confusion Matrix")
         plt.savefig('./assets/confusion_matrix.png')
+        print("[INFO] Confusion matrix saved at './assets/confusion_matrix.png'")
+
 
         mlflow.log_artifact("./assets/confusion_matrix.png")
 
@@ -409,12 +395,16 @@ with mlflow.start_run():
             MLP(train_df,test_df)
             
     # Load data
+    logger.info("Loading data.")
     train_df = pd.read_csv('./data/processed/train.csv')
     test_df = pd.read_csv('./data/processed/test.csv')
     val_df = pd.read_csv('./data/processed/val.csv')
-    
-    mlflow.log_input(mlflow.data.from_pandas(train_df),'final_training_data')
-    mlflow.log_input(mlflow.data.from_pandas(test_df),'final_testing_data')
-    mlflow.log_input(mlflow.data.from_pandas(val_df),'final_validation_data')
-    
-    train_model(train_df, test_df,MODEL)
+
+    logger.info("Data loaded. Logging inputs to MLflow.")
+    mlflow.log_input(mlflow.data.from_pandas(train_df), 'final_training_data')
+    mlflow.log_input(mlflow.data.from_pandas(test_df), 'final_testing_data')
+    mlflow.log_input(mlflow.data.from_pandas(val_df), 'final_validation_data')
+
+    logger.info("Starting model training with model type: %s", MODEL)
+    train_model(train_df, test_df, MODEL)
+    logger.info("Model training completed.")
