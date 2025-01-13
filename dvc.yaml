@@ -82,3 +82,16 @@ stages:
       - model_training.STEP_SIZE
       - model_training.GAMMA
 
+  prediction:
+    cmd: python src/prediction.py
+    deps:
+      - src/prediction.py
+      - data/processed/val.csv
+    params:
+      - prediction.DATA
+      - prediction.MODEL
+      - prediction.SUBMISSION_FILE_PATH
+      - prediction.XGB_MODEL_PATH
+      - prediction.MLP_MODEL_PATH
+    outs:
+      - predictions.csv

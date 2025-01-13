@@ -30,6 +30,10 @@ mlflow.set_tracking_uri("https://dagshub.com/sarthakg004/convolve.mlflow")
 
 params = yaml.safe_load(open("params.yaml"))['model_training']
 
+PROCESSED_TRAIN_DATA = params['PROCESSED_TRAIN_DATA']
+PROCESSED_TEST_DATA = params['PROCESSED_TEST_DATA']
+PROCESSED_VAL_DATA = params['PROCESSED_VAL_DATA']
+
 MODEL = params['MODEL']
 
 ## Hyperparameter space for XGBoost model
@@ -157,6 +161,17 @@ with mlflow.start_run():
         mlflow.log_metric('Precision', precision)
         mlflow.log_metric('Recall', recall)
         mlflow.log_metric('F1-Score', f1)
+        
+        print("\n Classification Report:\n")
+        report = classification_report(y_test, y_pred_optimal, target_names=["Non-Fraud", "Fraud"])
+        print(report)
+
+        # Save the report to a text file
+        with open("./assets/classification_report.txt", "w") as file:
+            file.write(report)
+
+        print("Classification report saved in assets folder.")
+        mlflow.log_artifact("./assets/classification_report.txt")
 
         cm = confusion_matrix(y_test, y_pred_optimal)
         plt.figure(figsize=(8, 6))
@@ -311,7 +326,7 @@ with mlflow.start_run():
                 print("[INFO] Early stopping triggered. Stopping training.")
                 break
 
-        torch.save(model.state_dict(), "./models/fraud_mlp.pth")
+        torch.save(model, "./models/mlp_model.pth")
         mlflow.pytorch.log_model(model, "mlp_model")
 
         # Calculate optimal threshold using ROC curve
@@ -331,9 +346,9 @@ with mlflow.start_run():
         plt.ylabel('True Positive Rate')
         plt.title('Receiver Operating Characteristic')
         plt.legend(loc="lower right")
-        plt.savefig('./assets/roc_auc_curve.png')
-        mlflow.log_artifact('./assets/roc_auc_curve.png')
-        print("[INFO] ROC-AUC Curve saved at './assets/roc_auc_curve.png'")
+        plt.savefig('./assets/roc_curve.png')
+        mlflow.log_artifact('./assets/roccurve.png')
+        print("[INFO] ROC-AUC Curve saved at './assets/roc_curve.png'")
 
         # Final testing
         print("[INFO] Evaluating on test set with optimal threshold...")
@@ -382,7 +397,16 @@ with mlflow.start_run():
         mlflow.log_artifact("./assets/confusion_matrix.png")
 
         print("Classification Report:\n")
-        print(classification_report(test_targets, final_preds, target_names=["Non-Fraud", "Fraud"]))
+        report = classification_report(test_targets, final_preds, target_names=["Non-Fraud", "Fraud"])
+        print("Classification Report:\n")
+        print(report)
+
+        # Save the report to a text file
+        with open("./assets/classification_report.txt", "w") as file:
+            file.write(report)
+
+        print("Classification report saved in assets folder")
+        mlflow.log_artifact("./assets/classification_report.txt")
 
 
         
@@ -396,9 +420,9 @@ with mlflow.start_run():
             
     # Load data
     logger.info("Loading data.")
-    train_df = pd.read_csv('./data/processed/train.csv')
-    test_df = pd.read_csv('./data/processed/test.csv')
-    val_df = pd.read_csv('./data/processed/val.csv')
+    train_df = pd.read_csv(PROCESSED_TRAIN_DATA)
+    test_df = pd.read_csv(PROCESSED_TEST_DATA)
+    val_df = pd.read_csv(PROCESSED_VAL_DATA)
 
     logger.info("Data loaded. Logging inputs to MLflow.")
     mlflow.log_input(mlflow.data.from_pandas(train_df), 'final_training_data')

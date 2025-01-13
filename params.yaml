@@ -13,10 +13,15 @@ data_cleaning:
 ##################################################################################################################################################
 feature_engineering:
 
+  INTERIM_TRAIN_DATA_PATH : 'data/interim/train.csv'  # Path to the interim train data
+  INTERIM_TEST_DATA_PATH : 'data/interim/test.csv'  # Path to the interim test data
+  INTERIM_VAL_DATA_PATH : 'data/interim/validation.csv'  # Path to the interim validation data
+
+
   FEATURE_IMPORTANCE_TECHNIQUE : 'combine'  # Feature importance technique to be used 'combine' or 'fisher' or 'rf' or 'xgb' 
   NO_FEATURES : 40
 
-  FEATURE_SELECTION_TECHNIQUE : 'skip'  # Feature selection technique to be used    'anova' or 'backward' or 'autoencoder' or'skip'
+  FEATURE_SELECTION_TECHNIQUE : 'anova'  # Feature selection technique to be used    'anova' or 'backward' or 'autoencoder' or'skip'
   ANOVA_K : 40  # Number of features to be selected using ANOVA
 
   # If selection technique is Sequential Backward Selection than hyperparameters of RF model
@@ -31,7 +36,12 @@ feature_engineering:
 ############################################################################################################################################################
 
 model_training:
-  MODEL : 'xgb' 
+
+  PROCESSED_TRAIN_DATA : 'data/processed/train.csv'  # Path to the processed train data
+  PROCESSED_TEST_DATA : 'data/processed/test.csv'  # Path to the processed test data
+  PROCESSED_VAL_DATA : 'data/processed/val.csv'  # Path to the processed validation data
+
+  MODEL : 'mlp' 
 
   # Hyperparameters Space of XGB model
   MAX_DEPTH : [3,15]
@@ -51,7 +61,7 @@ model_training:
   SEED: 42
 
   N_TRIALS : 10
-  TIMEOUT : 3600
+  TIMEOUT : 600
 
   # Hyperparameters of MLP model
   NO_LAYERS : 10
@@ -65,4 +75,11 @@ model_training:
   VAL_THRESHOLD : 0.01
   STEP_SIZE : 10
   GAMMA : 0.1
+
+prediction:
+  DATA : 'data/processed/val.csv'  # Path to the processed test data
+  MODEL : 'mlp'  # Model to be used for prediction
+  XGB_MODEL_PATH : 'models/xgb_model.pkl'  # Path to the trained XGB model
+  MLP_MODEL_PATH : 'models/mlp_model.pth'  # Path to the trained MLP model
+  SUBMISSION_FILE_PATH : 'prediction.csv'  # Path to the submission file
 

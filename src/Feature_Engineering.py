@@ -28,6 +28,10 @@ logger = logging.getLogger(__name__)
 # Load parameters
 params = yaml.safe_load(open('./params.yaml', 'r'))['feature_engineering']
 
+INTERIM_TRAIN_DATA_PATH = params['INTERIM_TRAIN_DATA_PATH']
+INTERIM_TEST_DATA_PATH = params['INTERIM_TEST_DATA_PATH']
+INTERIM_VAL_DATA_PATH = params['INTERIM_VAL_DATA_PATH']
+
 FEATURE_IMPORTANCE_TECHNIQUE = params['FEATURE_IMPORTANCE_TECHNIQUE']
 NO_FEATURES = params['NO_FEATURES']
 
@@ -253,9 +257,9 @@ with mlflow.start_run():
 
     # Load data
     logger.info("Loading data...")
-    train_df = pd.read_csv('./data/interim/train.csv')
-    test_df = pd.read_csv('./data/interim/test.csv')
-    val_df = pd.read_csv('./data/interim/validation.csv')
+    train_df = pd.read_csv(INTERIM_TRAIN_DATA_PATH)
+    test_df = pd.read_csv(INTERIM_TEST_DATA_PATH)
+    val_df = pd.read_csv(INTERIM_VAL_DATA_PATH)
     
     mlflow.log_input(mlflow.data.from_pandas(train_df),'interim_training_data')
     mlflow.log_input(mlflow.data.from_pandas(test_df),'interim_testing_data')
@@ -268,9 +272,5 @@ with mlflow.start_run():
     train_df.to_csv('./data/processed/train.csv', index=False)
     test_df.to_csv('./data/processed/test.csv', index=False)
     val_df.to_csv('./data/processed/val.csv', index=False)
-    
-    mlflow.log_artifact('./data/processed/train.csv')
-    mlflow.log_artifact('./data/processed/test.csv')
-    mlflow.log_artifact('./data/processed/val.csv')
     
     logger.info("Processed data saved successfully.")
