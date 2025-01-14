@@ -9,6 +9,9 @@ import category_encoders as ce
 import mlflow
 import dagshub
 
+import warnings
+warnings.filterwarnings("ignore")
+
 dagshub.init(repo_owner='sarthakg004', repo_name='convolve', mlflow=True)
 
 mlflow.set_tracking_uri("https://dagshub.com/sarthakg004/convolve.mlflow")
@@ -32,6 +35,9 @@ IMPUTATION_TECHNIQUE = params['IMPUTATION_TECHNIQUE']
 KNN_IMPUTER_N_NEIGHBORS = params['KNN_IMPUTER_N_NEIGHBORS']
 TEST_SIZE = params['TEST_SIZE']
 RANDOM_STATE = params['RANDOM_STATE']
+
+EXPERIMENT_NAME = yaml.safe_load(open('./params.yaml', 'r'))['experiment']['EXPERIMENT_NAME']
+mlflow.set_experiment(EXPERIMENT_NAME)
 
 logging.info(f"Parameters loaded Successfully.\n")
 

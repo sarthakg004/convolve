@@ -6,6 +6,7 @@ stages:
       - data/raw/Dev_data_to_be_shared.csv
       - data/raw/validation_data_to_be_shared.csv
     params:
+      - experiment.EXPERIMENT_NAME
       - data_cleaning.ENCODING_TECHNIQUE
       - data_cleaning.DEV_DATA_PATH
       - data_cleaning.VAL_DATA_PATH
@@ -28,6 +29,7 @@ stages:
       - data/interim/test.csv
       - data/interim/validation.csv
     params:
+      - experiment.EXPERIMENT_NAME
       - feature_engineering.FEATURE_SELECTION_TECHNIQUE
       - feature_engineering.ANOVA_K
       - feature_engineering.SFS_FORWARD
@@ -52,6 +54,7 @@ stages:
       - data/processed/test.csv
       - data/processed/val.csv
     params:
+      - experiment.EXPERIMENT_NAME
       - model_training.MODEL
       - model_training.MAX_DEPTH 
       - model_training.OBJECTIVE
@@ -88,10 +91,11 @@ stages:
       - src/prediction.py
       - data/processed/val.csv
     params:
+      - experiment.EXPERIMENT_NAME
       - prediction.DATA
       - prediction.MODEL
       - prediction.SUBMISSION_FILE_PATH
       - prediction.XGB_MODEL_PATH
       - prediction.MLP_MODEL_PATH
     outs:
-      - predictions.csv
+      - prediction.csv

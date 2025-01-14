@@ -19,6 +19,10 @@ import mlflow
 import dagshub
 import logging
 
+import warnings
+warnings.filterwarnings("ignore")
+
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -69,14 +73,17 @@ VAL_THRESHOLD = params['VAL_THRESHOLD']
 STEP_SIZE = params['STEP_SIZE']
 GAMMA = params['GAMMA']
 
+EXPERIMENT_NAME = yaml.safe_load(open('./params.yaml', 'r'))['experiment']['EXPERIMENT_NAME']
+mlflow.set_experiment(EXPERIMENT_NAME)
+
 with mlflow.start_run():
     
     def XGB(train_df, test_df):
         logger.info("Starting XGB model training.")
         
-        X_train = train_df.drop(columns=['bad_flag'])
+        X_train = train_df.drop(columns=['bad_flag', 'account_number'])
         y_train = train_df['bad_flag']
-        X_test = test_df.drop(columns=['bad_flag'])
+        X_test = test_df.drop(columns=['bad_flag', 'account_number'])
         y_test = test_df['bad_flag']
         logger.info("Data split into train and test sets.")
 
@@ -245,9 +252,9 @@ with mlflow.start_run():
 
         # Prepare data
         print(f"PREPARING DATA")
-        X_train = train_df.drop("bad_flag", axis=1).values
+        X_train = train_df.drop(["bad_flag","account_number"], axis=1).values
         y_train = train_df["bad_flag"].values
-        X_val = test_df.drop("bad_flag", axis=1).values
+        X_val = test_df.drop(["bad_flag","account_number"], axis=1).values
         y_val = test_df["bad_flag"].values
 
         train_dataset = FraudDataset(X_train, y_train)
@@ -313,20 +320,21 @@ with mlflow.start_run():
                     val_targets.extend(labels.int().cpu().numpy())
 
             val_loss /= len(val_loader)
+            val_accuracy = accuracy_score(val_targets,val_preds)
             val_precision = precision_score(val_targets, val_preds, zero_division=0)
             val_recall = recall_score(val_targets, val_preds, zero_division=0)
             val_f1 = f1_score(val_targets, val_preds, zero_division=0)
             val_auc = roc_auc_score(val_targets, val_probs)
             scheduler.step()
 
-            print(f"Epoch {epoch+1}/{N_EPOCHS}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Precision: {val_precision:.4f}, Recall: {val_recall:.4f}, F1: {val_f1:.4f}, AUC: {val_auc:.4f}")
+            print(f"Epoch {epoch+1}/{N_EPOCHS}, Train Loss: {train_loss:.4f},Val Loss: {val_loss:.4f}, Accuracy: {val_accuracy:.4f}, Precision: {val_precision:.4f}, Recall: {val_recall:.4f}, F1: {val_f1:.4f}, AUC: {val_auc:.4f}")
 
             early_stopping(val_loss, model)
             if early_stopping.early_stop:
                 print("[INFO] Early stopping triggered. Stopping training.")
                 break
 
-        torch.save(model, "./models/mlp_model.pth")
+        torch.save(model.state_dict(), "./models/mlp_model.pth")
         mlflow.pytorch.log_model(model, "mlp_model")
 
         # Calculate optimal threshold using ROC curve
@@ -347,7 +355,7 @@ with mlflow.start_run():
         plt.title('Receiver Operating Characteristic')
         plt.legend(loc="lower right")
         plt.savefig('./assets/roc_curve.png')
-        mlflow.log_artifact('./assets/roccurve.png')
+        mlflow.log_artifact('./assets/roc_curve.png')
         print("[INFO] ROC-AUC Curve saved at './assets/roc_curve.png'")
 
         # Final testing
@@ -356,7 +364,6 @@ with mlflow.start_run():
         test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE)
 
         model.eval()
-        test_preds = []
         test_probs = []
         test_targets = []
         with torch.no_grad():
@@ -370,10 +377,10 @@ with mlflow.start_run():
         final_preds = (np.array(test_probs) > optimal_threshold).astype(int)
 
         # Metrics
-        accuracy = accuracy_score(test_targets, final_preds, zero_division=0)
-        precision = precision_score(test_targets, final_preds, zero_division=0)
-        recall = recall_score(test_targets, final_preds, zero_division=0)
-        f1 = f1_score(test_targets, final_preds, zero_division=0)
+        accuracy = accuracy_score(test_targets, final_preds)
+        precision = precision_score(test_targets, final_preds)
+        recall = recall_score(test_targets, final_preds)
+        f1 = f1_score(test_targets, final_preds)
         auc = roc_auc_score(test_targets, test_probs)
         print(f"Test Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}, AUC: {auc:.4f}")
 

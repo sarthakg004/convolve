@@ -1,3 +1,6 @@
+experiment:
+  EXPERIMENT_NAME: 'experiment_2'  # Name of the experiment
+
 data_cleaning:
   DEV_DATA_PATH : 'data/raw/Dev_data_to_be_shared.csv'  # Path to the raw data
   VAL_DATA_PATH : 'data/raw/validation_data_to_be_shared.csv'  # Path to the raw validation data
@@ -18,10 +21,10 @@ feature_engineering:
   INTERIM_VAL_DATA_PATH : 'data/interim/validation.csv'  # Path to the interim validation data
 
 
-  FEATURE_IMPORTANCE_TECHNIQUE : 'combine'  # Feature importance technique to be used 'combine' or 'fisher' or 'rf' or 'xgb' 
+  FEATURE_IMPORTANCE_TECHNIQUE : 'anova'  # Feature importance technique to be used 'combine' or 'fisher' or 'rf' or 'xgb' 
   NO_FEATURES : 40
 
-  FEATURE_SELECTION_TECHNIQUE : 'anova'  # Feature selection technique to be used    'anova' or 'backward' or 'autoencoder' or'skip'
+  FEATURE_SELECTION_TECHNIQUE : 'skip'  # Feature selection technique to be used    'anova' or 'backward' or 'autoencoder' or'skip'
   ANOVA_K : 40  # Number of features to be selected using ANOVA
 
   # If selection technique is Sequential Backward Selection than hyperparameters of RF model
@@ -65,21 +68,21 @@ model_training:
 
   # Hyperparameters of MLP model
   NO_LAYERS : 10
-  HIDDEN_DIMS : [512, 512,256,256,256,128,128,64,32,16]
+  HIDDEN_DIMS : [1024,512,256,256,128,64,64,32,32,16]
   DROPOUT_RATE : 0.3
   LEARNING_RATE : 0.001
   WEIGHT_DECAY : 0.00001
   BATCH_SIZE : 128
   N_EPOCHS : 100
-  PATIENCE : 15
-  VAL_THRESHOLD : 0.01
+  PATIENCE : 10
+  VAL_THRESHOLD : 0.1
   STEP_SIZE : 10
   GAMMA : 0.1
 
 prediction:
   DATA : 'data/processed/val.csv'  # Path to the processed test data
   MODEL : 'mlp'  # Model to be used for prediction
-  XGB_MODEL_PATH : 'models/xgb_model.pkl'  # Path to the trained XGB model
+  XGB_MODEL_PATH : 'models/xgboost_model.pkl'  # Path to the trained XGB model
   MLP_MODEL_PATH : 'models/mlp_model.pth'  # Path to the trained MLP model
   SUBMISSION_FILE_PATH : 'prediction.csv'  # Path to the submission file
 

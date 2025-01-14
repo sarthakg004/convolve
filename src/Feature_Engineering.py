@@ -17,6 +17,10 @@ import mlflow
 import yaml
 import dagshub
 
+import warnings
+warnings.filterwarnings("ignore")
+
+
 dagshub.init(repo_owner='sarthakg004', repo_name='convolve', mlflow=True)
 
 mlflow.set_tracking_uri("https://dagshub.com/sarthakg004/convolve.mlflow")
@@ -45,6 +49,9 @@ MIN_SAMPLES_SPLIT = params['MIN_SAMPLES_SPLIT']
 MIN_SAMPLES_LEAF = params['MIN_SAMPLES_LEAF']
 MAX_FEATURES = params['MAX_FEATURES']
 RANDOM_STATE = params['RANDOM_STATE']
+
+EXPERIMENT_NAME = yaml.safe_load(open('./params.yaml', 'r'))['experiment']['EXPERIMENT_NAME']
+mlflow.set_experiment(EXPERIMENT_NAME)
 
 logger.info("Parameters loaded successfully from params.yaml")
 ###########################################################################################################################
@@ -134,9 +141,11 @@ with mlflow.start_run():
     ''' Feature Selection '''
     def anova(train_df, test_df, k):
         logger.info(f"Performing ANOVA-based feature selection with k={k}...")
-        X_train = train_df.drop(columns=['bad_flag'])
+        train_account = train_df['account_number']
+        test_account = test_df['account_number']
+        X_train = train_df.drop(columns=['bad_flag', 'account_number'])
         y_train = train_df['bad_flag']
-        X_test = test_df.drop(columns=['bad_flag'])
+        X_test = test_df.drop(columns=['bad_flag', 'account_number'])
         y_test = test_df['bad_flag']
 
         selector = SelectKBest(f_classif, k=k)
@@ -148,9 +157,10 @@ with mlflow.start_run():
         mlflow.log_param('selected_features', selected_features.tolist())
         mlflow.log_param('ANOVA_K', k)
 
-        train_df = pd.concat([pd.DataFrame(X_train_selected, columns=selected_features), y_train.reset_index(drop=True)], axis=1)
-        test_df = pd.concat([pd.DataFrame(X_test_selected, columns=selected_features), y_test.reset_index(drop=True)], axis=1)
+        train_df = pd.concat([train_account, pd.DataFrame(X_train_selected, columns=selected_features), y_train.reset_index(drop=True)], axis=1)
+        test_df = pd.concat([train_account, pd.DataFrame(X_test_selected, columns=selected_features), y_test.reset_index(drop=True)], axis=1)
 
+        selected_features = train_df.columns[1:-1]
         return selected_features, train_df, test_df
     
     
