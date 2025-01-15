@@ -23,7 +23,8 @@ warnings.filterwarnings("ignore")
 
 dagshub.init(repo_owner='sarthakg004', repo_name='convolve', mlflow=True)
 
-mlflow.set_tracking_uri("https://dagshub.com/sarthakg004/convolve.mlflow")
+TRACKING_URI = yaml.safe_load(open('./params.yaml', 'r'))['experiment']['TRACKING_URI']
+mlflow.set_tracking_uri(TRACKING_URI)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

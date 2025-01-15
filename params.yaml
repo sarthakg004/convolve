@@ -1,6 +1,7 @@
 experiment:
-  EXPERIMENT_NAME: 'experiment_2'  # Name of the experiment
-
+  EXPERIMENT_NAME: 'experiment_3'  # Name of the experiment
+  TRACKING_URI : "https://dagshub.com/sarthakg004/convolve.mlflow"
+##################################################################################################################################################
 data_cleaning:
   DEV_DATA_PATH : 'data/raw/Dev_data_to_be_shared.csv'  # Path to the raw data
   VAL_DATA_PATH : 'data/raw/validation_data_to_be_shared.csv'  # Path to the raw validation data
@@ -78,7 +79,7 @@ model_training:
   VAL_THRESHOLD : 0.1
   STEP_SIZE : 10
   GAMMA : 0.1
-
+##################################################################################################################################
 prediction:
   DATA : 'data/processed/val.csv'  # Path to the processed test data
   MODEL : 'mlp'  # Model to be used for prediction

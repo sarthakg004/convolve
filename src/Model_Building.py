@@ -29,7 +29,8 @@ logger = logging.getLogger(__name__)
 
 dagshub.init(repo_owner='sarthakg004', repo_name='convolve', mlflow=True)
 
-mlflow.set_tracking_uri("https://dagshub.com/sarthakg004/convolve.mlflow")
+TRACKING_URI = yaml.safe_load(open('./params.yaml', 'r'))['experiment']['TRACKING_URI']
+mlflow.set_tracking_uri(TRACKING_URI)
 
 
 params = yaml.safe_load(open("params.yaml"))['model_training']
@@ -109,22 +110,22 @@ with mlflow.start_run():
             dtest = xgb.DMatrix(X_test, label=y_test)
             bst = xgb.train(params, dtrain, num_boost_round=params['n_estimators'], verbose_eval=False)
             y_pred_prob = bst.predict(dtest)
-            auc_score = roc_auc_score(y_test, y_pred_prob)
-            return auc_score
+            f1 = f1_score(y_test, y_pred_prob)
+            return -f1
 
         logger.info("Running Optuna study for finding ~best parameters.")
-        study = optuna.create_study(direction='maximize')
+        study = optuna.create_study(direction='minimize')
         study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
 
         logger.info("Best hyperparameters found: %s", study.best_params)
         mlflow.log_params(study.best_params)
 
         best_params = study.best_params
-        best_params['objective'] = 'binary:logistic'
-        best_params['eval_metric'] = 'logloss'
-        best_params['seed'] = 42
-        best_params['tree_method'] = 'hist'
-        best_params['device'] = 'cuda'
+        best_params['objective'] = OBJECTIVE
+        best_params['eval_metric'] = EVAL_METRIC
+        best_params['seed'] = SEED
+        best_params['tree_method'] = TREE_METHOD
+        best_params['device'] = DEVICE
         
         dtrain = xgb.DMatrix(X_train, label=y_train)
         dtest = xgb.DMatrix(X_test, label=y_test)
@@ -375,6 +376,7 @@ with mlflow.start_run():
                 test_targets.extend(labels.int().cpu().numpy())
 
         final_preds = (np.array(test_probs) > optimal_threshold).astype(int)
+        
 
         # Metrics
         accuracy = accuracy_score(test_targets, final_preds)
