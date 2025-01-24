@@ -61,7 +61,7 @@ with mlflow.start_run():
     '''Feature Importance'''
     def calculate_fisher_score(train_df):
         logger.info("Calculating Fisher Score...")
-        X = train_df.drop(columns=['bad_flag'])
+        X = train_df.drop(columns=['account_number','bad_flag'])
         y = train_df['bad_flag']
         fisher_scores = {}
         overall_mean = X.mean()
@@ -88,7 +88,7 @@ with mlflow.start_run():
 
     def get_feature_importance_random_forest(train_df):
         logger.info("Calculating feature importance using Random Forest...")
-        X_train = train_df.drop(columns=['bad_flag'])
+        X_train = train_df.drop(columns=['account_number','bad_flag'])
         y_train = train_df['bad_flag']
         rf = RandomForestClassifier(n_estimators=100, random_state=42)
         rf.fit(X_train, y_train)
@@ -100,7 +100,7 @@ with mlflow.start_run():
 
     def get_feature_importance_xgboost(train_df):
         logger.info("Calculating feature importance using XGBoost...")
-        X_train = train_df.drop(columns=['bad_flag'])
+        X_train = train_df.drop(columns=['account_number','bad_flag'])
         y_train = train_df['bad_flag']
         xgb = XGBClassifier(use_label_encoder=False, eval_metric="logloss", random_state=42)
         xgb.fit(X_train, y_train)
@@ -137,7 +137,25 @@ with mlflow.start_run():
             return get_feature_importance_xgboost(train_df)
         elif feature_selection_technique == 'combine':
             return combine_feature_scores(train_df)
+    ##########################################################################################################################
+    def based_on_feature_importance(train_df, test_df, No, feature_selection_technique='combine'):
 
+        logger.info(f"Selecting top {No} features")
+        # Get feature importance scores
+        feature_importance_scores = get_feature_importance(train_df, feature_selection_technique)
+
+        # Select the top No features
+        selected_features = feature_importance_scores.head(No).index.tolist()
+
+        selected_features.append('account_number')
+        logger.info(f"Selected features: {selected_features}")
+
+        # Reduce train and test datasets to only include selected features
+        reduced_train_df = train_df[ selected_features + ['bad_flag']]
+        reduced_test_df = test_df[ selected_features + ['bad_flag']]
+
+        return selected_features, reduced_train_df, reduced_test_df
+    
     ###########################################################################################################################
     ''' Feature Selection '''
     def anova(train_df, test_df, k):
@@ -246,6 +264,8 @@ with mlflow.start_run():
             return anova(train_df, test_df, ANOVA_K)
         elif technique == 'backward':
             return backwardFE(train_df, test_df)
+        elif technique == "feature_importance":
+            return based_on_feature_importance(train_df, test_df, NO_FEATURES, FEATURE_IMPORTANCE_TECHNIQUE)
         else:
             raise ValueError(f"Invalid feature selection technique: {technique}")
 
@@ -255,8 +275,6 @@ with mlflow.start_run():
         logger.info("Getting final data after feature selection...")
 
         if technique != 'skip':
-            feature_importance = get_feature_importance(train_df, FEATURE_IMPORTANCE_TECHNIQUE).nlargest(NO_FEATURES).index
-            
             selected_features, train_df, test_df = feature_selection(train_df, test_df, technique)
             val_df = val_df[selected_features]
 

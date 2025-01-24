@@ -72,7 +72,9 @@ stages:
       - model_training.DEVICE
       - model_training.SEED
       - model_training.N_TRIALS
-      - model_training.TIMEOUT
+
+
+      - model_training.TRIALS
       - model_training.NO_LAYERS
       - model_training.HIDDEN_DIMS
       - model_training.DROPOUT_RATE
@@ -80,10 +82,7 @@ stages:
       - model_training.WEIGHT_DECAY
       - model_training.BATCH_SIZE
       - model_training.N_EPOCHS
-      - model_training.PATIENCE
-      - model_training.VAL_THRESHOLD 
-      - model_training.STEP_SIZE
-      - model_training.GAMMA
+      - model_training.OPTIMIZER
 
   prediction:
     cmd: python src/prediction.py

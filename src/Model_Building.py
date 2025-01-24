@@ -43,7 +43,6 @@ MODEL = params['MODEL']
 
 ## Hyperparameter space for XGBoost model
 N_TRIALS          = params['N_TRIALS']
-TIMEOUT          = params['TIMEOUT']
 MAX_DEPTH         = params['MAX_DEPTH']
 OBJECTIVE         =params['OBJECTIVE']
 EVAL_METRIC       =params['EVAL_METRIC']
@@ -62,6 +61,7 @@ SEED              =params['SEED']
 
 
 # Hyperparameters for MLP model 
+TRIALS = params['TRIALS']
 NO_LAYERS = params['NO_LAYERS']
 HIDDEN_DIMS = params['HIDDEN_DIMS']
 DROPOUT_RATE =params['DROPOUT_RATE']
@@ -69,10 +69,8 @@ LEARNING_RATE = params['LEARNING_RATE']
 WEIGHT_DECAY = params['WEIGHT_DECAY']
 BATCH_SIZE = params['BATCH_SIZE']
 N_EPOCHS = params['N_EPOCHS']
-PATIENCE = params['PATIENCE']
-VAL_THRESHOLD = params['VAL_THRESHOLD']
-STEP_SIZE = params['STEP_SIZE']
-GAMMA = params['GAMMA']
+OPTIMIZER = params['OPTIMIZER']
+
 
 EXPERIMENT_NAME = yaml.safe_load(open('./params.yaml', 'r'))['experiment']['EXPERIMENT_NAME']
 mlflow.set_experiment(EXPERIMENT_NAME)
@@ -110,12 +108,16 @@ with mlflow.start_run():
             dtest = xgb.DMatrix(X_test, label=y_test)
             bst = xgb.train(params, dtrain, num_boost_round=params['n_estimators'], verbose_eval=False)
             y_pred_prob = bst.predict(dtest)
-            f1 = f1_score(y_test, y_pred_prob)
-            return -f1
+            fpr, tpr, thresholds = roc_curve(y_test, y_pred_prob)
+            optimal_idx = np.argmax(tpr - fpr)
+            optimal_threshold = thresholds[optimal_idx]
+            y_pred_optimal = (y_pred_prob > optimal_threshold).astype(int)
+            f1 = f1_score(y_test, y_pred_optimal)
+            return f1
 
         logger.info("Running Optuna study for finding ~best parameters.")
-        study = optuna.create_study(direction='minimize')
-        study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
+        study = optuna.create_study(direction='maximize')
+        study.optimize(objective, n_trials=N_TRIALS)
 
         logger.info("Best hyperparameters found: %s", study.best_params)
         mlflow.log_params(study.best_params)
@@ -129,7 +131,7 @@ with mlflow.start_run():
         
         dtrain = xgb.DMatrix(X_train, label=y_train)
         dtest = xgb.DMatrix(X_test, label=y_test)
-        bst = xgb.train(best_params, dtrain, num_boost_round=100)
+        bst = xgb.train(best_params, dtrain)
 
         with open('./models/xgboost_model.pkl', 'wb') as f:
             pickle.dump(bst, f)
@@ -195,9 +197,8 @@ with mlflow.start_run():
     # Define MLP function
     def MLP(train_df, test_df):
         # Check for GPU
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"[INFO] Using device: {device}")
-
 
         # Define custom dataset class
         class FraudDataset(Dataset):
@@ -211,21 +212,30 @@ with mlflow.start_run():
             def __getitem__(self, idx):
                 return self.data[idx], self.labels[idx]
 
+        # Prepare data
+        print("[INFO] Preparing data...")
+        X_train = train_df.drop(["bad_flag", "account_number"], axis=1).values
+        y_train = train_df["bad_flag"].values
+        X_val = test_df.drop(["bad_flag", "account_number"], axis=1).values
+        y_val = test_df["bad_flag"].values
+
+        train_dataset = FraudDataset(X_train, y_train)
+        test_dataset = FraudDataset(X_val, y_val)
+
         # Define MLP model
         class FraudMLP(nn.Module):
-            def __init__(self, input_dim, num_layers, layer_nodes):
+            def __init__(self, input_dim, num_hidden_layers, neurons_per_layer, dropout_rate):
                 super(FraudMLP, self).__init__()
                 layers = []
-                current_dim = input_dim
 
-                for i in range(num_layers):
-                    layers.append(nn.Linear(current_dim, layer_nodes[i]))
-                    layers.append(nn.BatchNorm1d(layer_nodes[i]))
+                for _ in range(num_hidden_layers):
+                    layers.append(nn.Linear(input_dim, neurons_per_layer))
+                    layers.append(nn.BatchNorm1d(neurons_per_layer))
                     layers.append(nn.ReLU())
-                    layers.append(nn.Dropout(DROPOUT_RATE))
-                    current_dim = layer_nodes[i]
+                    layers.append(nn.Dropout(dropout_rate))
+                    input_dim = neurons_per_layer
 
-                layers.append(nn.Linear(current_dim, 1))
+                layers.append(nn.Linear(neurons_per_layer, 1))
                 layers.append(nn.Sigmoid())
 
                 self.model = nn.Sequential(*layers)
@@ -233,61 +243,106 @@ with mlflow.start_run():
             def forward(self, x):
                 return self.model(x)
 
-        # Early stopping class
-        class EarlyStopping:
-            def __init__(self, patience=PATIENCE, delta=0.001):
-                self.patience = patience
-                self.delta = delta
-                self.counter = 0
-                self.best_score = None
-                self.early_stop = False
+        # Hyperparameter tuning objective function
+        def objective(trial):
+            # Sample hyperparameters
+            num_hidden_layers = trial.suggest_int("num_hidden_layers", NO_LAYERS[0], NO_LAYERS[1])
+            neurons_per_layer = trial.suggest_int("neurons_per_layer",HIDDEN_DIMS[0], HIDDEN_DIMS[1], step =HIDDEN_DIMS[2])
+            epochs = trial.suggest_int("epochs",N_EPOCHS[0],N_EPOCHS[1], step=N_EPOCHS[2])
+            learning_rate = trial.suggest_float("learning_rate", LEARNING_RATE[0],LEARNING_RATE[1], log=True)
+            dropout_rate = trial.suggest_float("dropout_rate",DROPOUT_RATE[0], DROPOUT_RATE[1], step=DROPOUT_RATE[2])
+            batch_size = trial.suggest_categorical("batch_size", BATCH_SIZE)
+            optimizer_name = trial.suggest_categorical("optimizer", OPTIMIZER)
+            weight_decay = trial.suggest_float("weight_decay",WEIGHT_DECAY[0],WEIGHT_DECAY[1], log=True)
 
-            def __call__(self, val_loss, model):
-                if self.best_score is None or val_loss < self.best_score - self.delta:
-                    self.best_score = val_loss
-                    self.counter = 0
-                else:
-                    self.counter += 1
-                    if self.counter >= self.patience:
-                        self.early_stop = True
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
+            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, pin_memory=True)
 
-        # Prepare data
-        print(f"PREPARING DATA")
-        X_train = train_df.drop(["bad_flag","account_number"], axis=1).values
-        y_train = train_df["bad_flag"].values
-        X_val = test_df.drop(["bad_flag","account_number"], axis=1).values
-        y_val = test_df["bad_flag"].values
+            # Model initialization
+            input_dim = X_train.shape[1]
+            model = FraudMLP(input_dim, num_hidden_layers, neurons_per_layer, dropout_rate)
+            model.to(device)
 
-        train_dataset = FraudDataset(X_train, y_train)
-        val_dataset = FraudDataset(X_val, y_val)
-        train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, pin_memory=True)
-        val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, pin_memory=True)
+            # Loss function
+            criterion = nn.BCELoss()
 
-        # Model setup
-        print("[INFO] Initializing the MLP model...")
-        INPUT_DIM = X_train.shape[1]
-        model = FraudMLP(INPUT_DIM, NO_LAYERS, HIDDEN_DIMS).to(device)
-        criterion = nn.BCELoss()
-        optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=STEP_SIZE, gamma=GAMMA)
+            # Optimizer selection
+            if optimizer_name == "Adam":
+                optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+            elif optimizer_name == "SGD":
+                optimizer = optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+            else:
+                optimizer = optim.RMSprop(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+
+            # Training loop
+            for epoch in range(epochs):
+                model.train()
+                for inputs, labels in train_loader:
+                    inputs, labels = inputs.to(device), labels.to(device)
+
+                    optimizer.zero_grad()
+                    outputs = model(inputs).squeeze()
+                    loss = criterion(outputs, labels)
+                    loss.backward()
+                    optimizer.step()
+
+            # Validation loop
+            model.eval()
+            val_preds = []
+            val_targets = []
+            val_probs = []
+
+            with torch.no_grad():
+                for inputs, labels in test_loader:
+                    inputs, labels = inputs.to(device), labels.to(device)
+                    outputs = model(inputs).squeeze()
+                    
+                    fpr, tpr, thresholds = roc_curve(labels.cpu().numpy(), outputs.cpu().numpy())
+                    optimal_idx = np.argmax(tpr - fpr)
+                    val_threshold = thresholds[optimal_idx]
+                    
+                    val_probs.extend(outputs.cpu().numpy())
+                    val_preds.extend((outputs > val_threshold).int().cpu().numpy())
+                    val_targets.extend(labels.int().cpu().numpy())
+
+            val_f1 = f1_score(val_targets, val_preds, zero_division=0)
+
+            # Return optimization metric
+            return val_f1
+
+        # Hyperparameter tuning with Optuna
         
-        summary(model, input_size=X_train.shape)
+        print("[INFO] Hyperparameter tuning with Optuna...")
+        study = optuna.create_study(direction="maximize")
+        study.optimize(objective, n_trials=TRIALS)
 
-        mlflow.log_param("num_layers", NO_LAYERS)
-        mlflow.log_param("layer_nodes", HIDDEN_DIMS)
-        mlflow.log_param("dropout_rate", DROPOUT_RATE)
-        mlflow.log_param("learning_rate", LEARNING_RATE)
-        mlflow.log_param("weight_decay", WEIGHT_DECAY)
-        mlflow.log_param("batch_size", BATCH_SIZE)
-        mlflow.log_param("n_epochs", N_EPOCHS)
-        mlflow.log_param("patience", PATIENCE)
-        mlflow.log_param("step_size", STEP_SIZE)
-        mlflow.log_param("gamma", GAMMA)
+        # Best hyperparameters
+        best_params = study.best_params
+        print("[INFO] Best hyperparameters:", best_params)
 
-        # Training loop
-        early_stopping = EarlyStopping(patience=PATIENCE)
-        print(f"[INFO] Starting training for {N_EPOCHS} epochs with patience {PATIENCE}...")
-        for epoch in range(N_EPOCHS):
+        # Save the best parameters to a YAML file
+        yaml_file_path = "./models/best_hyperparameters.yaml"
+        with open(yaml_file_path, "w") as yaml_file:
+            yaml.dump(best_params, yaml_file, default_flow_style=False)
+
+        # Train final model with best hyperparameters
+        batch_size = best_params["batch_size"]
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
+        val_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, pin_memory=True)
+
+        model = FraudMLP(
+            input_dim=X_train.shape[1],
+            num_hidden_layers=best_params["num_hidden_layers"],
+            neurons_per_layer=best_params["neurons_per_layer"],
+            dropout_rate=best_params["dropout_rate"]
+        ).to(device)
+
+        optimizer = optim.Adam(model.parameters(), lr=best_params["learning_rate"], weight_decay=best_params["weight_decay"])
+        criterion = nn.BCELoss()
+
+        # Training final model
+        print("[INFO] Training final model with best hyperparameters...")
+        for epoch in range(best_params["epochs"]):
             model.train()
             train_loss = 0
 
@@ -317,7 +372,12 @@ with mlflow.start_run():
                     loss = criterion(outputs, labels)
                     val_loss += loss.item()
                     val_probs.extend(outputs.cpu().numpy())
-                    val_preds.extend((outputs > VAL_THRESHOLD).int().cpu().numpy())
+                    
+                    fpr, tpr, thresholds = roc_curve(labels.cpu().numpy(), outputs.cpu().numpy())
+                    optimal_idx = np.argmax(tpr - fpr)
+                    val_threshold = thresholds[optimal_idx]
+                    
+                    val_preds.extend((outputs > val_threshold).int().cpu().numpy())
                     val_targets.extend(labels.int().cpu().numpy())
 
             val_loss /= len(val_loader)
@@ -326,17 +386,14 @@ with mlflow.start_run():
             val_recall = recall_score(val_targets, val_preds, zero_division=0)
             val_f1 = f1_score(val_targets, val_preds, zero_division=0)
             val_auc = roc_auc_score(val_targets, val_probs)
-            scheduler.step()
+            
+            print(f"Epoch {epoch+1}/{best_params['epochs']}, Train Loss: {train_loss:.4f},Val Loss: {val_loss:.4f}, Accuracy: {val_accuracy:.4f}, Precision: {val_precision:.4f}, Recall: {val_recall:.4f}, F1: {val_f1:.4f}, AUC: {val_auc:.4f}")
 
-            print(f"Epoch {epoch+1}/{N_EPOCHS}, Train Loss: {train_loss:.4f},Val Loss: {val_loss:.4f}, Accuracy: {val_accuracy:.4f}, Precision: {val_precision:.4f}, Recall: {val_recall:.4f}, F1: {val_f1:.4f}, AUC: {val_auc:.4f}")
 
-            early_stopping(val_loss, model)
-            if early_stopping.early_stop:
-                print("[INFO] Early stopping triggered. Stopping training.")
-                break
-
+        # Save model
         torch.save(model.state_dict(), "./models/mlp_model.pth")
         mlflow.pytorch.log_model(model, "mlp_model")
+
 
         # Calculate optimal threshold using ROC curve
         fpr, tpr, thresholds = roc_curve(val_targets, val_probs)
@@ -361,14 +418,11 @@ with mlflow.start_run():
 
         # Final testing
         print("[INFO] Evaluating on test set with optimal threshold...")
-        test_dataset = FraudDataset(X_val, y_val)
-        test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE)
-
         model.eval()
         test_probs = []
         test_targets = []
         with torch.no_grad():
-            for inputs, labels in test_loader:
+            for inputs, labels in val_loader:
                 inputs, labels = inputs.to(device), labels.to(device)
 
                 outputs = model(inputs).squeeze()
@@ -417,8 +471,6 @@ with mlflow.start_run():
         print("Classification report saved in assets folder")
         mlflow.log_artifact("./assets/classification_report.txt")
 
-
-        
     #######################################################################################################    
     
     def train_model(train_df, test_df,model):

@@ -13,8 +13,8 @@ stages:
       size: 126617929
     - path: src/data_preprocessing.py
       hash: md5
-      md5: 525076a79e5ee9f0c968b99f90fb8483
-      size: 12969
+      md5: 9eeed94d243311dc03129feda99da402
+      size: 13561
     params:
       params.yaml:
         data_cleaning.DEV_DATA_PATH: data/raw/Dev_data_to_be_shared.csv
@@ -26,45 +26,45 @@ stages:
         data_cleaning.TEST_SIZE: 0.2
         data_cleaning.VAL_DATA_PATH: data/raw/validation_data_to_be_shared.csv
         data_cleaning.VARIANCE_THRESHOLD: 0
-        experiment.EXPERIMENT_NAME: experiment_2
+        experiment.EXPERIMENT_NAME: MLP_testing
     outs:
     - path: data/interim/test.csv
       hash: md5
-      md5: 97ca4df6d21c163cc3b7ff426ca68fe6
-      size: 115879159
+      md5: 0aabfa3dc2034ea29dd2fd4504a89eda
+      size: 107424955
     - path: data/interim/train.csv
       hash: md5
-      md5: b677058f7a04a2b23dea7b52f92da18c
-      size: 463438259
+      md5: 522a1f6e52dff5d85e8b10822760ad19
+      size: 429631461
     - path: data/interim/validation.csv
       hash: md5
-      md5: 7922f6029a66db1727d142c301ca1ca0
-      size: 58875639
+      md5: 28c7b2835ea29723aed9ee96fa76a6f3
+      size: 231364192
   feature_engineering:
     cmd: python src/feature_engineering.py
     deps:
     - path: data/interim/test.csv
       hash: md5
-      md5: 8c063eb8daf21935a9352cd120e894c8
-      size: 41368218
+      md5: 0aabfa3dc2034ea29dd2fd4504a89eda
+      size: 107424955
     - path: data/interim/train.csv
       hash: md5
-      md5: da5fd964d34a1bead664c707870aa39e
-      size: 165471400
+      md5: 522a1f6e52dff5d85e8b10822760ad19
+      size: 429631461
     - path: data/interim/validation.csv
       hash: md5
-      md5: a809d799a0c400b1ed82691abec71850
-      size: 89275534
+      md5: 28c7b2835ea29723aed9ee96fa76a6f3
+      size: 231364192
     - path: src/feature_engineering.py
       hash: md5
-      md5: 61e639ded27cd3076a0788681bedefad
-      size: 12598
+      md5: e41e6f8787281757cadb6dd144a55703
+      size: 13676
     params:
       params.yaml:
-        experiment.EXPERIMENT_NAME: experiment_2
+        experiment.EXPERIMENT_NAME: MLP_testing
         feature_engineering.ANOVA_K: 40
-        feature_engineering.FEATURE_IMPORTANCE_TECHNIQUE: anova
-        feature_engineering.FEATURE_SELECTION_TECHNIQUE: skip
+        feature_engineering.FEATURE_IMPORTANCE_TECHNIQUE: combine
+        feature_engineering.FEATURE_SELECTION_TECHNIQUE: feature_importance
         feature_engineering.MAX_DEPTH: 10
         feature_engineering.MAX_FEATURES: sqrt
         feature_engineering.MIN_SAMPLES_LEAF: 2
@@ -76,70 +76,72 @@ stages:
     outs:
     - path: data/processed/test.csv
       hash: md5
-      md5: 8c063eb8daf21935a9352cd120e894c8
-      size: 41368218
+      md5: 8f88d3b302f071bff90bd34035d6445c
+      size: 15256722
     - path: data/processed/train.csv
       hash: md5
-      md5: da5fd964d34a1bead664c707870aa39e
-      size: 165471400
+      md5: 410b583c6bb60fc37cb78346edac2836
+      size: 61005764
     - path: data/processed/val.csv
       hash: md5
-      md5: a809d799a0c400b1ed82691abec71850
-      size: 89275534
+      md5: d009497da8d11654b4f6b169b1c9ba45
+      size: 32865607
   model_training:
     cmd: python src/Model_Building.py
     deps:
     - path: data/processed/test.csv
       hash: md5
-      md5: 8c063eb8daf21935a9352cd120e894c8
-      size: 41368218
+      md5: 8f88d3b302f071bff90bd34035d6445c
+      size: 15256722
     - path: data/processed/train.csv
       hash: md5
-      md5: da5fd964d34a1bead664c707870aa39e
-      size: 165471400
+      md5: 410b583c6bb60fc37cb78346edac2836
+      size: 61005764
     - path: data/processed/val.csv
       hash: md5
-      md5: a809d799a0c400b1ed82691abec71850
-      size: 89275534
+      md5: d009497da8d11654b4f6b169b1c9ba45
+      size: 32865607
     - path: src/Model_Building.py
       hash: md5
-      md5: 00ee1a02001347df832db77a947d1f06
-      size: 18647
+      md5: fbdae22d573d173ee3dd3117e53f3d37
+      size: 21482
     params:
       params.yaml:
-        experiment.EXPERIMENT_NAME: experiment_2
+        experiment.EXPERIMENT_NAME: MLP_testing
         model_training.ALPHA:
         - 0
         - 10
-        model_training.BATCH_SIZE: 128
+        model_training.BATCH_SIZE:
+        - 16
+        - 32
+        - 64
+        - 128
+        - 256
         model_training.COL_SAMPLE_BY_TREE:
         - 0.5
         - 1.0
         model_training.DEVICE: cuda
-        model_training.DROPOUT_RATE: 0.3
+        model_training.DROPOUT_RATE:
+        - 0.1
+        - 0.5
+        - 0.1
         model_training.ETA:
         - 0.005
         - 0.3
         model_training.EVAL_METRIC: logloss
-        model_training.GAMMA: 0.1
         model_training.GAMMA_XGB:
         - 0
         - 5
         model_training.HIDDEN_DIMS:
-        - 1024
+        - 32
         - 512
-        - 256
-        - 256
-        - 128
-        - 64
-        - 64
         - 32
-        - 32
-        - 16
         model_training.LAMBDA:
         - 0
         - 10
-        model_training.LEARNING_RATE: 0.001
+        model_training.LEARNING_RATE:
+        - 1e-05
+        - 0.1
         model_training.MAX_DEPTH:
         - 3
         - 15
@@ -147,40 +149,48 @@ stages:
         - 1
         - 20
         model_training.MODEL: mlp
-        model_training.NO_LAYERS: 10
-        model_training.N_EPOCHS: 100
+        model_training.NO_LAYERS:
+        - 2
+        - 10
+        model_training.N_EPOCHS:
+        - 10
+        - 50
+        - 10
         model_training.N_ESTIMATORS:
         - 50
         - 500
         model_training.N_TRIALS: 10
         model_training.OBJECTIVE: binary:logistic
-        model_training.PATIENCE: 10
+        model_training.OPTIMIZER:
+        - Adam
+        - SGD
+        - RMSprop
         model_training.SCALE_POS_WEIGHT:
         - 1
         - 10
         model_training.SEED: 42
-        model_training.STEP_SIZE: 10
         model_training.SUB_SAMPLE:
         - 0.5
         - 1.0
-        model_training.TIMEOUT: 600
         model_training.TREE_METHOD: hist
-        model_training.VAL_THRESHOLD: 0.1
-        model_training.WEIGHT_DECAY: 1e-05
+        model_training.TRIALS: 1
+        model_training.WEIGHT_DECAY:
+        - 1e-05
+        - 0.001
   prediction:
     cmd: python src/prediction.py
     deps:
     - path: data/processed/val.csv
       hash: md5
-      md5: a809d799a0c400b1ed82691abec71850
-      size: 89275534
+      md5: d009497da8d11654b4f6b169b1c9ba45
+      size: 32865607
     - path: src/prediction.py
       hash: md5
-      md5: 9d36552d8172c9469e22d57d3f94e602
-      size: 4008
+      md5: cec18edb82b46a27089c0a45e0c04fcb
+      size: 4092
     params:
       params.yaml:
-        experiment.EXPERIMENT_NAME: experiment_2
+        experiment.EXPERIMENT_NAME: MLP_testing
         prediction.DATA: data/processed/val.csv
         prediction.MLP_MODEL_PATH: models/mlp_model.pth
         prediction.MODEL: mlp
@@ -189,5 +199,5 @@ stages:
     outs:
     - path: prediction.csv
       hash: md5
-      md5: 771593182d1891dc55850e5778a772ef
-      size: 922535
+      md5: 215bbe909a7408a782646b20cb3bc71b
+      size: 935105

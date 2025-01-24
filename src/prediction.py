@@ -29,10 +29,10 @@ SUBMISSION_FILE_PATH = params['SUBMISSION_FILE_PATH']
 XGB_MODEL_PATH = params['XGB_MODEL_PATH']
 MLP_MODEL_PATH = params['MLP_MODEL_PATH']
 
-params = yaml.safe_load(open("params.yaml"))['model_training']
-NO_LAYERS = params['NO_LAYERS']
-HIDDEN_DIMS = params['HIDDEN_DIMS']
-DROPOUT_RATE =params['DROPOUT_RATE']
+params = yaml.safe_load(open("./models/best_hyperparameters.yaml"))
+NO_LAYERS = params['num_hidden_layers']
+HIDDEN_DIMS = params['neurons_per_layer']
+DROPOUT_RATE =params['dropout_rate']
 
 EXPERIMENT_NAME = yaml.safe_load(open('./params.yaml', 'r'))['experiment']['EXPERIMENT_NAME']
 mlflow.set_experiment(EXPERIMENT_NAME)
@@ -62,19 +62,18 @@ with mlflow.start_run():
         elif model == 'mlp':
             # Define MLP model
             class FraudMLP(nn.Module):
-                def __init__(self, input_dim, num_layers, layer_nodes):
+                def __init__(self, input_dim, num_hidden_layers, neurons_per_layer, dropout_rate):
                     super(FraudMLP, self).__init__()
                     layers = []
-                    current_dim = input_dim
 
-                    for i in range(num_layers):
-                        layers.append(nn.Linear(current_dim, layer_nodes[i]))
-                        layers.append(nn.BatchNorm1d(layer_nodes[i]))
+                    for _ in range(num_hidden_layers):
+                        layers.append(nn.Linear(input_dim, neurons_per_layer))
+                        layers.append(nn.BatchNorm1d(neurons_per_layer))
                         layers.append(nn.ReLU())
-                        layers.append(nn.Dropout(DROPOUT_RATE))
-                        current_dim = layer_nodes[i]
+                        layers.append(nn.Dropout(dropout_rate))
+                        input_dim = neurons_per_layer
 
-                    layers.append(nn.Linear(current_dim, 1))
+                    layers.append(nn.Linear(neurons_per_layer, 1))
                     layers.append(nn.Sigmoid())
 
                     self.model = nn.Sequential(*layers)
@@ -84,7 +83,7 @@ with mlflow.start_run():
             
             # Load the entire model
             INPUT_DIM = data.shape[1] -1
-            model = FraudMLP(INPUT_DIM, NO_LAYERS, HIDDEN_DIMS)
+            model = FraudMLP(INPUT_DIM, NO_LAYERS, HIDDEN_DIMS,DROPOUT_RATE)
             model_weights_path = MLP_MODEL_PATH
             model.load_state_dict(torch.load(model_weights_path))
             

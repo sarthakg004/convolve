@@ -5,6 +5,9 @@ from sklearn.feature_selection import VarianceThreshold
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer, KNNImputer
 import yaml
+from sklearn.preprocessing import RobustScaler, StandardScaler, PowerTransformer
+from sklearn.model_selection import train_test_split
+import statsmodels.api as sm
 import category_encoders as ce
 import mlflow
 import dagshub
@@ -84,31 +87,25 @@ with mlflow.start_run():
             selector.fit_transform(df)
             selected_features = df.columns[selector.get_support()]
             df = pd.DataFrame(df, columns=selected_features)
-            val_df = pd.DataFrame(val_df, columns=selected_features)
+            val_df = pd.DataFrame(val_df, columns=selected_features.drop('bad_flag'))
             return df , val_df
         ##################################################################################################################
         def preprocessing(df, val_df):
-            import pandas as pd
-            import numpy as np
-            from scipy.stats import chi2_contingency
-            from sklearn.utils import resample
-            from sklearn.preprocessing import RobustScaler, StandardScaler, PowerTransformer
-            from sklearn.model_selection import train_test_split
-            import statsmodels.api as sm
-
+            """Preprocess data for training and validation."""
             def downsample_data(data, target_column):
+                """Downsample majority class to balance classes."""
                 majority = data[data[target_column] == 0]
                 minority = data[data[target_column] == 1]
                 majority_downsampled = resample(majority, replace=False, n_samples=len(minority), random_state=42)
                 return pd.concat([majority_downsampled, minority])
 
             def select_significant_columns(data, target_column, alpha=0.05):
+                """Select significant categorical features using chi-squared test."""
                 significant_columns = []
-                for col in data.select_dtypes(include=['int', 'float']).columns:
+                for col in data.select_dtypes(include=['int']).columns:
                     if col == target_column:
                         continue
-                    if data[col].nunique() <= 1:  # Skip columns with zero variance
-                        continue
+                    
                     contingency_table = pd.crosstab(data[col], data[target_column])
                     chi2, p, _, _ = chi2_contingency(contingency_table)
                     if p < alpha:
@@ -116,11 +113,12 @@ with mlflow.start_run():
                 return significant_columns
 
             def logistic_regression_filter(data, target_column, alpha=0.05):
+                """Select significant continuous features using logistic regression."""
                 results = []
                 for col in data.select_dtypes(include=['float']).columns:
                     if col == target_column:
                         continue
-                    X = data[[col]].fillna(data[col].mean())
+                    X = data[[col]]
                     y = data[target_column]
                     X = sm.add_constant(X)
                     try:
@@ -131,13 +129,8 @@ with mlflow.start_run():
                         continue
                 return results
 
-            def preprocess_subset(subset, target_column):
-                subset = subset.loc[:, subset.isnull().mean() * 100 < 25]
-                downsampled = downsample_data(subset, target_column)
-                downsampled = downsampled.loc[:, downsampled.isnull().mean() * 100 < 5]
-                return downsampled
-
             def scale_and_transform(data):
+                """Apply robust scaling and power transformation to continuous features."""
                 robust_scaler = RobustScaler()
                 gaussian_transformer = PowerTransformer(method='yeo-johnson')
                 filled_data = data.fillna(data.median())
@@ -149,36 +142,51 @@ with mlflow.start_run():
 
             # Process `Onus` subset
             Onus = df.loc[:, df.columns.str.contains('onus') | (df.columns == target_column)]
-            Onus = preprocess_subset(Onus, target_column)
+            Onus = downsample_data(Onus, target_column)
             Onus_float_f = logistic_regression_filter(Onus, target_column)
             Onus_int_f = select_significant_columns(Onus, target_column)
 
             # Process `bureau` subset
             bureau = df.loc[:, df.columns.str.contains(r'\bbureau_(?!.*enquiry)', regex=True) | (df.columns == target_column)]
-            bureau = preprocess_subset(bureau, target_column)
+            bureau = downsample_data(bureau, target_column)
             Burr_float_f = logistic_regression_filter(bureau, target_column)
 
             # Process `bureau_enquiry` subset
             bureau_eqr = df.loc[:, df.columns.str.contains('bureau_enquiry') | (df.columns == target_column)]
-            bureau_eqr = preprocess_subset(bureau_eqr, target_column)
+            bureau_eqr = downsample_data(bureau_eqr, target_column)
             burr_Eqr_float_f = logistic_regression_filter(bureau_eqr, target_column)
 
             # Combine selected columns
-            selected_columns = Onus_float_f + Onus_int_f + Burr_float_f + burr_Eqr_float_f +['account_number','bad_flag']
+            selected_columns = Onus_float_f + Onus_int_f + Burr_float_f + burr_Eqr_float_f + ['account_number', 'bad_flag']
             gf = df[selected_columns]
 
-            # Scale and transform the combined data
-            gf_combined = scale_and_transform(gf)
+            # Separate continuous and categorical columns
+            categorical_columns = Onus_int_f + ['account_number', 'bad_flag']
+            continuous_columns = list(set(selected_columns) - set(categorical_columns))
 
-            # Align validation data with training features
-            gf_combined_columns = gf_combined.columns
-            val_df = val_df[gf_combined_columns.drop('bad_flag')].fillna(0)  # Handle missing columns in validation data
+            gf_continuous = gf[continuous_columns]
+            gf_continuous = scale_and_transform(gf_continuous)
+
+            gf_categorical = gf[categorical_columns]
+            gf_combined = pd.concat([gf_continuous, gf_categorical], axis=1)
 
             # Split into train and test sets
-            train_df, test_df = train_test_split(gf_combined, test_size=0.2, random_state=42)
+            features = gf_combined.drop(columns=['bad_flag'])
+            target = gf_combined['bad_flag']
+            train_features, test_features, train_target, test_target = train_test_split(
+                features, target, test_size=0.2, random_state=42
+            )
+            train_df = pd.concat([train_features, train_target], axis=1).reset_index(drop=True)
+            test_df = pd.concat([test_features, test_target], axis=1).reset_index(drop=True)
+
+            # Process validation data
+            val_df_continuous = val_df[continuous_columns]
+            val_df_continuous = scale_and_transform(val_df_continuous)
+            val_df_categorical = val_df[list(set(categorical_columns) - {'bad_flag'})]
+            val_df = pd.concat([val_df_continuous, val_df_categorical], axis=1)
+
 
             return train_df, test_df, val_df
-
 
         
         ##################################################################################################################
@@ -215,7 +223,7 @@ with mlflow.start_run():
             
             # Fit and transform the training features
             X_imputed = imputer.fit_transform(X)
-            X_imputed_df = pd.DataFrame(X_imputed, columns=X.columns, index=X.index)
+            X_imputed_df = pd.DataFrame(X_imputed, columns=X.columns)
             
             # Combine imputed features with the target column
             df_imputed = pd.concat([X_imputed_df, y], axis=1)
@@ -270,7 +278,7 @@ with mlflow.start_run():
         test_df.to_csv('data/interim/test.csv', index=False)
         val_df.to_csv('data/interim/validation.csv', index=False)
         
-        logging.info("Cleaned and encoded data saved successfully.")
+        logging.info("Cleaned data saved successfully.")
 
     except Exception as e:
         logging.error(f"An error occurred: {e}")
